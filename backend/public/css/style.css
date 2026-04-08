@@ -226,6 +226,20 @@ body {
     margin-left: auto;
 }
 
+.global-hint {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text2);
+    padding: 8px 12px;
+    background: rgba(88,166,255,0.06);
+    border: 1px solid rgba(88,166,255,0.15);
+    border-radius: 6px;
+    margin-bottom: 4px;
+}
+
 /* MACHINES GRID */
 .machines-grid {
     display: grid;
@@ -283,6 +297,19 @@ body {
     font-size: 11px;
     color: var(--text2);
     margin-top: 2px;
+}
+
+.mine-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: rgba(88,166,255,0.18);
+    color: var(--blue);
+    border: 1px solid rgba(88,166,255,0.3);
+    vertical-align: middle;
+    margin-left: 4px;
 }
 
 .card-status {

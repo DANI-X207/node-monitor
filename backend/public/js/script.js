@@ -1,19 +1,26 @@
 const socket = io();
 let allMachines = [];
 let myMachineId = localStorage.getItem('myMachineId') || null;
-let myIp = null;
+
+const ONLINE_THRESHOLD_MS = 150000;
 
 function mbToDisplay(mb) {
-    if (!mb && mb !== 0) return '—';
+    if (mb == null) return '—';
     if (mb >= 1024) return (mb / 1024).toFixed(2) + ' GB';
     return mb.toFixed(0) + ' MB';
 }
 
+function isOnline(lastSeenUtcStr) {
+    const t = new Date(lastSeenUtcStr + ' UTC').getTime();
+    return (Date.now() - t) < ONLINE_THRESHOLD_MS;
+}
+
 function switchView(view) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    document.querySelectorAll('.nav-link[data-view]').forEach(l => l.classList.remove('active'));
     document.getElementById('view-' + view).classList.add('active');
-    document.querySelector(`[data-view="${view}"]`).classList.add('active');
+    const navEl = document.querySelector(`[data-view="${view}"]`);
+    if (navEl) navEl.classList.add('active');
     if (view === 'me') renderMyMachine();
 }
 
@@ -37,8 +44,9 @@ socket.on('disconnect', () => {
     document.getElementById('connectionStatus').textContent = 'Déconnecté';
 });
 
-socket.on('machine_connected', () => { fetchMachines(); });
-socket.on('machine_disconnected', () => { fetchMachines(); });
+socket.on('machine_update', () => {
+    fetchMachines();
+});
 
 socket.on('metrics_update', (data) => {
     const machine = allMachines.find(m => m.machine_id === data.machine_id);
@@ -55,52 +63,31 @@ socket.on('metrics_update', (data) => {
             disks: data.metrics.disks || [],
             gpu: data.metrics.gpu_percent
         };
+        machine.last_seen = new Date().toISOString().replace('T', ' ').split('.')[0];
         machine.last_seen_display = 'À l\'instant';
         updateMachineCard(machine);
-        if (machine.machine_id === myMachineId) {
-            renderMyMachineMetrics(machine);
-        }
+        if (machine.machine_id === myMachineId) renderMyMachineMetrics(machine);
+    } else {
+        fetchMachines();
     }
 });
-
-async function detectMyMachine(machines) {
-    if (myMachineId && machines.find(m => m.machine_id === myMachineId)) return;
-
-    try {
-        if (!myIp) {
-            const res = await fetch('/api/my-ip');
-            const data = await res.json();
-            myIp = data.ip;
-        }
-        if (myIp) {
-            const match = machines.find(m => m.ip_address === myIp || m.ip === myIp);
-            if (match) {
-                myMachineId = match.machine_id;
-                localStorage.setItem('myMachineId', myMachineId);
-            }
-        }
-    } catch(e) {}
-}
 
 async function fetchMachines() {
     try {
         const res = await fetch('/api/machines');
         allMachines = await res.json();
-
-        await detectMyMachine(allMachines);
-
         renderGlobalView();
-
         const currentView = document.querySelector('.view.active')?.id;
         if (currentView === 'view-me') renderMyMachine();
     } catch(e) {
-        console.error('Error fetching machines:', e);
+        console.error('Fetch error:', e);
     }
 }
 
 function renderGlobalView() {
     const grid = document.getElementById('machines-grid');
     const emptyState = document.getElementById('emptyGlobal');
+    const hint = document.getElementById('globalHint');
     const countEl = document.getElementById('machineCount');
 
     const count = allMachines.length;
@@ -108,26 +95,28 @@ function renderGlobalView() {
 
     if (count === 0) {
         grid.innerHTML = '';
+        grid.appendChild(hint);
         grid.appendChild(emptyState);
+        hint.style.display = 'none';
         emptyState.style.display = '';
         return;
     }
 
     emptyState.style.display = 'none';
+    hint.style.display = !myMachineId ? '' : 'none';
 
     allMachines.forEach(machine => {
-        let card = document.querySelector(`[data-machine-id="${machine.machine_id}"]`);
+        let card = document.querySelector(`.machine-card[data-machine-id="${machine.machine_id}"]`);
         if (!card) {
             card = createMachineCard(machine);
             grid.appendChild(card);
         } else {
-            updateMachineCard(machine);
+            updateMachineCard(machine, card);
         }
     });
 
     document.querySelectorAll('.machine-card').forEach(card => {
-        const id = card.dataset.machineId;
-        if (!allMachines.find(m => m.machine_id === id)) {
+        if (!allMachines.find(m => m.machine_id === card.dataset.machineId)) {
             card.remove();
         }
     });
@@ -137,6 +126,7 @@ function createMachineCard(machine) {
     const card = document.createElement('div');
     card.className = 'machine-card';
     card.dataset.machineId = machine.machine_id;
+    card.title = 'Cliquer pour définir comme Ma Machine';
     card.addEventListener('click', () => {
         myMachineId = machine.machine_id;
         localStorage.setItem('myMachineId', myMachineId);
@@ -147,29 +137,25 @@ function createMachineCard(machine) {
 }
 
 function updateMachineCard(machine, cardEl) {
-    const card = cardEl || document.querySelector(`[data-machine-id="${machine.machine_id}"]`);
+    const card = cardEl || document.querySelector(`.machine-card[data-machine-id="${machine.machine_id}"]`);
     if (!card) return;
 
-    const now = Date.now();
-    const lastSeen = new Date(machine.last_seen + ' UTC').getTime();
-    const diffSec = (now - lastSeen) / 1000;
-    const isOnline = diffSec < 30;
-
+    const online = isOnline(machine.last_seen);
     const cpu = machine.metrics?.cpu ?? 0;
     const ram = machine.metrics?.ram ?? 0;
     const ramUsed = machine.metrics?.ram_used_mb;
     const uptime = machine.metrics?.uptime_display || '—';
-    const lastSeenDisplay = machine.last_seen_display || machine.last_seen || '—';
-
+    const lastSeenTxt = machine.last_seen_display || machine.last_seen || '—';
     const osDisplay = machine.os_display || machine.os_type || '—';
+    const isMine = machine.machine_id === myMachineId;
 
     card.innerHTML = `
         <div class="card-top">
             <div>
-                <div class="card-hostname">${machine.hostname || '—'}</div>
+                <div class="card-hostname">${machine.hostname || '—'}${isMine ? ' <span class="mine-badge">moi</span>' : ''}</div>
                 <div class="card-os">${osDisplay}</div>
             </div>
-            <span class="card-status ${isOnline ? 'online' : 'offline'}">${isOnline ? 'En ligne' : 'Hors ligne'}</span>
+            <span class="card-status ${online ? 'online' : 'offline'}">${online ? 'En ligne' : 'Hors ligne'}</span>
         </div>
         <div class="card-metrics">
             <div class="card-metric-item">
@@ -184,16 +170,15 @@ function updateMachineCard(machine, cardEl) {
             </div>
         </div>
         <div class="card-footer">
-            <span>RAM: ${ramUsed ? mbToDisplay(ramUsed) : '—'}</span>
+            <span>RAM: ${ramUsed != null ? mbToDisplay(ramUsed) : '—'}</span>
             <span>Uptime: ${uptime}</span>
-            <span>Vu ${lastSeenDisplay}</span>
+            <span>Vu ${lastSeenTxt}</span>
         </div>
     `;
 }
 
 function renderMyMachine() {
     const machine = myMachineId ? allMachines.find(m => m.machine_id === myMachineId) : null;
-
     const noAgent = document.getElementById('noAgentState');
     const machineData = document.getElementById('myMachineData');
     const statusBadge = document.getElementById('myMachineStatus');
@@ -209,13 +194,9 @@ function renderMyMachine() {
     noAgent.style.display = 'none';
     machineData.style.display = '';
 
-    const now = Date.now();
-    const lastSeen = new Date(machine.last_seen + ' UTC').getTime();
-    const diffSec = (now - lastSeen) / 1000;
-    const isOnline = diffSec < 30;
-
-    statusBadge.textContent = isOnline ? 'En ligne' : 'Hors ligne';
-    statusBadge.className = 'badge ' + (isOnline ? 'badge-online' : 'badge-offline');
+    const online = isOnline(machine.last_seen);
+    statusBadge.textContent = online ? 'En ligne' : 'Hors ligne';
+    statusBadge.className = 'badge ' + (online ? 'badge-online' : 'badge-offline');
 
     document.getElementById('me-hostname').textContent = machine.hostname || '—';
     document.getElementById('me-os').textContent = machine.os_display || machine.os_type || '—';
@@ -229,7 +210,6 @@ function renderMyMachine() {
 
 function renderMyMachineMetrics(machine) {
     const m = machine.metrics || {};
-
     const cpu = m.cpu ?? 0;
     const ram = m.ram ?? 0;
 
@@ -256,11 +236,13 @@ function renderMyMachineMetrics(machine) {
             const pct = d.percent || 0;
             const cls = pct > 85 ? 'danger' : pct > 65 ? 'warn' : '';
             const label = d.device || d.mountpoint || '?';
+            const usedGb = typeof d.used_gb === 'number' ? d.used_gb.toFixed(2) : '?';
+            const totalGb = typeof d.total_gb === 'number' ? d.total_gb.toFixed(2) : '?';
             return `
                 <div class="disk-item">
                     <div class="disk-header">
                         <span class="disk-name">${label}</span>
-                        <span class="disk-info">${d.used_gb.toFixed(2)} GB / ${d.total_gb.toFixed(2)} GB (${pct.toFixed(1)}%)</span>
+                        <span class="disk-info">${usedGb} GB / ${totalGb} GB (${pct.toFixed(1)}%)</span>
                     </div>
                     <div class="disk-bar"><div class="disk-fill ${cls}" style="width:${pct}%"></div></div>
                 </div>
@@ -280,63 +262,59 @@ function showGuide(os) {
             title: 'Guide — Windows .exe',
             html: `
                 <h3>1. Prérequis</h3>
-                <p>Installez Python 3.10+ depuis <a href="https://python.org" target="_blank">python.org</a> (cochez "Add Python to PATH").</p>
+                <p>Installez <a href="https://python.org" target="_blank">Python 3.10+</a> (cochez "Add Python to PATH") puis :</p>
+                <pre>pip install psutil pyinstaller</pre>
                 <h3>2. Télécharger l'agent</h3>
-                <p>Téléchargez agent.py et requirements.txt :</p>
-                <pre>pip install -r requirements.txt
-pip install pyinstaller</pre>
+                <p>Cliquez sur <strong>agent.py (tous systèmes)</strong> dans le menu — le serveur est déjà configuré dans le fichier.</p>
                 <h3>3. Compiler en .exe</h3>
-                <pre>pyinstaller --onefile --noconsole agent.py</pre>
-                <p>L'exécutable sera dans <code>dist/agent.exe</code></p>
-                <h3>4. Configurer le serveur</h3>
-                <p>Modifiez <code>config_agent.py</code> et définissez <code>SERVER_URL</code> avec l'adresse de votre serveur.</p>
-                <h3>5. Lancer</h3>
-                <pre>dist\\agent.exe</pre>
+                <pre>pyinstaller --onefile --noconsole --name node-monitor-agent agent.py</pre>
+                <p>L'exécutable se trouve dans <code>dist\node-monitor-agent.exe</code></p>
+                <h3>4. Lancer</h3>
+                <pre>dist\node-monitor-agent.exe</pre>
+                <p>Une fenêtre s'affiche brièvement pour confirmer la connexion, puis l'agent tourne en arrière-plan.</p>
             `
         },
         linux: {
             title: 'Guide — Linux binaire',
             html: `
                 <h3>1. Prérequis</h3>
-                <pre>sudo apt update && sudo apt install python3 python3-pip -y</pre>
-                <h3>2. Installer les dépendances</h3>
-                <pre>pip3 install -r requirements.txt
-pip3 install pyinstaller</pre>
+                <pre>sudo apt update && sudo apt install python3 python3-pip -y
+pip3 install psutil pyinstaller</pre>
+                <h3>2. Télécharger l'agent</h3>
+                <p>Cliquez sur <strong>agent.py (tous systèmes)</strong> — le serveur est déjà configuré.</p>
                 <h3>3. Compiler en binaire</h3>
-                <pre>pyinstaller --onefile agent.py</pre>
-                <p>Le binaire sera dans <code>dist/agent</code></p>
-                <h3>4. Configurer le serveur</h3>
-                <p>Modifiez <code>config_agent.py</code> et définissez <code>SERVER_URL</code> avec l'adresse de votre serveur.</p>
-                <h3>5. Lancer</h3>
-                <pre>chmod +x dist/agent
-./dist/agent</pre>
-                <h3>6. (Optionnel) Lancement automatique</h3>
-                <pre>sudo cp dist/agent /usr/local/bin/node-monitor-agent
+                <pre>pyinstaller --onefile --name node-monitor-agent agent.py</pre>
+                <p>Le binaire se trouve dans <code>dist/node-monitor-agent</code></p>
+                <h3>4. Lancer</h3>
+                <pre>chmod +x dist/node-monitor-agent
+./dist/node-monitor-agent</pre>
+                <h3>5. Démarrage automatique (optionnel)</h3>
+                <pre>sudo cp dist/node-monitor-agent /usr/local/bin/
 sudo chmod +x /usr/local/bin/node-monitor-agent</pre>
+                <p>Créez un service systemd ou ajoutez au crontab <code>@reboot</code> pour le lancer automatiquement.</p>
             `
         },
         macos: {
             title: 'Guide — macOS binaire',
             html: `
                 <h3>1. Prérequis</h3>
-                <p>Installez Python 3 via Homebrew :</p>
-                <pre>brew install python3</pre>
-                <h3>2. Installer les dépendances</h3>
-                <pre>pip3 install -r requirements.txt
-pip3 install pyinstaller</pre>
+                <pre>brew install python3
+pip3 install psutil pyinstaller</pre>
+                <h3>2. Télécharger l'agent</h3>
+                <p>Cliquez sur <strong>agent.py (tous systèmes)</strong> — le serveur est déjà configuré.</p>
                 <h3>3. Compiler</h3>
-                <pre>pyinstaller --onefile agent.py</pre>
-                <p>Le binaire sera dans <code>dist/agent</code></p>
-                <h3>4. Configurer le serveur</h3>
-                <p>Modifiez <code>config_agent.py</code> et définissez <code>SERVER_URL</code> avec l'adresse de votre serveur.</p>
-                <h3>5. Lancer</h3>
-                <pre>chmod +x dist/agent
-./dist/agent</pre>
+                <pre>pyinstaller --onefile --name node-monitor-agent agent.py</pre>
+                <h3>4. Lancer</h3>
+                <pre>chmod +x dist/node-monitor-agent
+./dist/node-monitor-agent</pre>
+                <h3>5. Note macOS</h3>
+                <p>Si macOS bloque l'exécution : <strong>Réglages Système → Sécurité → Autoriser quand même</strong>.</p>
             `
         }
     };
 
     const guide = guides[os];
+    if (!guide) return;
     title.textContent = guide.title;
     content.innerHTML = guide.html;
     modal.classList.add('open');
@@ -346,5 +324,5 @@ function closeGuide() {
     document.getElementById('guideModal').classList.remove('open');
 }
 
-setInterval(fetchMachines, 10000);
+setInterval(fetchMachines, 15000);
 fetchMachines();

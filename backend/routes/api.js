@@ -3,36 +3,111 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../database');
 
+function formatUptime(seconds) {
+  const s = Math.floor(seconds);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (d > 0) return `${d}j ${h}h ${m}m ${sec}s`;
+  if (h > 0) return `${h}h ${m}m ${sec}s`;
+  return `${m}m ${sec}s`;
+}
+
+function lastSeenDisplay(lastSeenStr) {
+  const lastSeenDate = new Date(lastSeenStr + ' UTC');
+  const diffSecs = Math.floor((Date.now() - lastSeenDate.getTime()) / 1000);
+  if (diffSecs < 60) return `Il y a ${diffSecs}s`;
+  if (diffSecs < 3600) return `Il y a ${Math.floor(diffSecs / 60)}min`;
+  if (diffSecs < 86400) return `Il y a ${Math.floor(diffSecs / 3600)}h`;
+  return `Il y a ${Math.floor(diffSecs / 86400)}j`;
+}
+
 module.exports = (io) => {
   const router = express.Router();
 
-  router.get('/my-ip', (req, res) => {
-    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
-      || req.headers['x-real-ip']
-      || req.socket.remoteAddress
-      || '';
-    res.json({ ip: ip.replace('::ffff:', '') });
+  router.post('/agent-report', async (req, res) => {
+    try {
+      const data = req.body;
+      if (!data || !data.agentId) return res.status(400).json({ error: 'Missing agentId' });
+
+      const machineId = data.agentId;
+      const firstIp = (data.ips?.[0] || '').split(':').pop() || '';
+      const osDisplay = data.os || data.platform || 'Unknown';
+      const osType = osDisplay.split(' ')[0];
+
+      await db.addMachine({
+        machine_id: machineId,
+        mac_address: machineId,
+        hostname: data.hostname || data.name || 'Unknown',
+        ip_address: firstIp,
+        os_type: osType,
+        os_display: osDisplay,
+        architecture: data.arch || null,
+        cpu_model: data.cpu?.model || null,
+        cpu_cores_physical: data.cpu?.physicalCores || null,
+        cpu_cores_logical: data.cpu?.cores || null
+      });
+
+      const uptime = Math.floor(data.uptime || 0);
+      const disksMapped = (data.disk || []).map(d => ({
+        device: d.mount,
+        mountpoint: d.mount,
+        total_gb: (d.total || 0) / (1024 ** 3),
+        used_gb: (d.used || 0) / (1024 ** 3),
+        free_gb: (d.free || 0) / (1024 ** 3),
+        percent: d.percent || 0
+      }));
+
+      const metrics = {
+        cpu_percent: parseFloat(data.cpu?.loadPercent) || 0,
+        ram_percent: parseFloat(data.memory?.usedPercent) || 0,
+        ram_used_mb: (data.memory?.used || 0) / (1024 * 1024),
+        ram_total_mb: (data.memory?.total || 0) / (1024 * 1024),
+        ram_free_mb: (data.memory?.free || 0) / (1024 * 1024),
+        network_sent_mb: (data.network?.tx || 0) / (1024 * 1024),
+        network_recv_mb: (data.network?.rx || 0) / (1024 * 1024),
+        uptime_seconds: uptime,
+        uptime_display: formatUptime(uptime),
+        disks: disksMapped,
+        gpu_percent: null
+      };
+
+      await db.recordMetrics(machineId, metrics);
+
+      io.emit('metrics_update', {
+        machine_id: machineId,
+        metrics: {
+          cpu_percent: metrics.cpu_percent,
+          ram_percent: metrics.ram_percent,
+          ram_used_mb: metrics.ram_used_mb,
+          ram_total_mb: metrics.ram_total_mb,
+          ram_free_mb: metrics.ram_free_mb,
+          network_sent_mb: metrics.network_sent_mb,
+          network_recv_mb: metrics.network_recv_mb,
+          uptime_display: metrics.uptime_display,
+          disks: disksMapped,
+          gpu_percent: null
+        }
+      });
+
+      io.emit('machine_update', { machine_id: machineId });
+
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('agent-report error:', err);
+      res.status(500).json({ error: 'Server error' });
+    }
   });
 
   router.get('/machines', async (req, res) => {
     try {
       const machines = await db.getMachines();
       const result = [];
-
       for (const machine of machines) {
         const metrics = await db.getLatestMetrics(machine.machine_id);
-        const lastSeenDate = new Date(machine.last_seen + ' UTC');
-        const diffMs = Date.now() - lastSeenDate.getTime();
-        const diffSecs = Math.floor(diffMs / 1000);
-        let lastSeenDisplay;
-        if (diffSecs < 60) lastSeenDisplay = `Il y a ${diffSecs}s`;
-        else if (diffSecs < 3600) lastSeenDisplay = `Il y a ${Math.floor(diffSecs / 60)}min`;
-        else if (diffSecs < 86400) lastSeenDisplay = `Il y a ${Math.floor(diffSecs / 3600)}h`;
-        else lastSeenDisplay = `Il y a ${Math.floor(diffSecs / 86400)}j`;
-
         result.push({
           machine_id: machine.machine_id,
-          mac_address: machine.mac_address,
           hostname: machine.hostname,
           os_display: machine.os_display || machine.os_type,
           os_type: machine.os_type,
@@ -41,7 +116,7 @@ module.exports = (io) => {
           cpu_cores_physical: machine.cpu_cores_physical,
           cpu_cores_logical: machine.cpu_cores_logical,
           last_seen: machine.last_seen,
-          last_seen_display: lastSeenDisplay,
+          last_seen_display: lastSeenDisplay(machine.last_seen),
           metrics: metrics ? {
             cpu: metrics.cpu_percent,
             ram: metrics.ram_percent,
@@ -50,14 +125,12 @@ module.exports = (io) => {
             ram_free_mb: metrics.ram_free_mb,
             network_sent_mb: metrics.network_sent_mb,
             network_recv_mb: metrics.network_recv_mb,
-            uptime_seconds: metrics.uptime_seconds,
             uptime_display: metrics.uptime_display,
             disks: metrics.disks || [],
             gpu: metrics.gpu_percent
           } : {}
         });
       }
-
       res.json(result);
     } catch (err) {
       console.error(err);
@@ -69,20 +142,9 @@ module.exports = (io) => {
     try {
       const machine = await db.getMachineById(req.params.machineId);
       if (!machine) return res.status(404).json({ error: 'Machine not found' });
-
       const metrics = await db.getLatestMetrics(machine.machine_id);
-      const lastSeenDate = new Date(machine.last_seen + ' UTC');
-      const diffMs = Date.now() - lastSeenDate.getTime();
-      const diffSecs = Math.floor(diffMs / 1000);
-      let lastSeenDisplay;
-      if (diffSecs < 60) lastSeenDisplay = `Il y a ${diffSecs}s`;
-      else if (diffSecs < 3600) lastSeenDisplay = `Il y a ${Math.floor(diffSecs / 60)}min`;
-      else if (diffSecs < 86400) lastSeenDisplay = `Il y a ${Math.floor(diffSecs / 3600)}h`;
-      else lastSeenDisplay = `Il y a ${Math.floor(diffSecs / 86400)}j`;
-
       res.json({
         machine_id: machine.machine_id,
-        mac_address: machine.mac_address,
         hostname: machine.hostname,
         os_display: machine.os_display || machine.os_type,
         os_type: machine.os_type,
@@ -91,7 +153,7 @@ module.exports = (io) => {
         cpu_cores_physical: machine.cpu_cores_physical,
         cpu_cores_logical: machine.cpu_cores_logical,
         last_seen: machine.last_seen,
-        last_seen_display: lastSeenDisplay,
+        last_seen_display: lastSeenDisplay(machine.last_seen),
         latest_metrics: metrics || {}
       });
     } catch (err) {
@@ -120,11 +182,19 @@ module.exports = (io) => {
   router.get('/download/agent', (req, res) => {
     const agentPath = path.join(__dirname, '../../agent/agent.py');
     if (!fs.existsSync(agentPath)) {
-      return res.status(404).json({ error: 'Agent not found' });
+      return res.status(404).send('Agent not found');
     }
+
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:5000';
+    const serverUrl = `${protocol}://${host}`;
+
+    let content = fs.readFileSync(agentPath, 'utf8');
+    content = content.replace('##SERVER_URL##', serverUrl);
+
     res.setHeader('Content-Disposition', 'attachment; filename="agent.py"');
-    res.setHeader('Content-Type', 'text/x-python');
-    res.sendFile(agentPath);
+    res.setHeader('Content-Type', 'text/x-python; charset=utf-8');
+    res.send(content);
   });
 
   return router;

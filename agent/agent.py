@@ -4,12 +4,13 @@ Node Monitor - Agent Python
 Envoie les métriques système au serveur toutes les 60 secondes.
 
 Usage:
-    python agent.py --server http://VOTRE_SERVEUR:5000 --name MON_PC
+    python agent.py
+    python agent.py --server http://VOTRE_SERVEUR:5000
 
 Dépendance recommandée (métriques complètes) :
     pip install psutil
 
-Créer un .exe Windows (pas de console) :
+Créer un .exe Windows (sans console) :
     pip install pyinstaller psutil
     pyinstaller --onefile --noconsole --name node-monitor-agent agent.py
 
@@ -39,11 +40,11 @@ except ImportError:
 
 try:
     import tkinter as tk
+    from tkinter import messagebox
     HAS_TK = True
 except ImportError:
     HAS_TK = False
 
-SERVER_URL = "##SERVER_URL##"
 AGENT_NAME = socket.gethostname()
 INTERVAL_SEC = 60
 
@@ -62,13 +63,43 @@ def get_machine_id():
 MACHINE_ID = get_machine_id()
 
 
-def show_startup_window(success, error_msg=""):
+def get_config_path():
+    """Chemin du fichier de configuration, à côté de l'exécutable."""
+    if getattr(sys, 'frozen', False):
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_dir, 'agent_config.json')
+
+
+def load_config():
+    """Charge la configuration sauvegardée."""
+    try:
+        with open(get_config_path(), 'r') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_config(server_url):
+    """Sauvegarde l'URL du serveur."""
+    try:
+        with open(get_config_path(), 'w') as f:
+            json.dump({"server_url": server_url}, f)
+    except Exception:
+        pass
+
+
+def ask_server_url_gui(default_url=""):
+    """Affiche une boîte de dialogue pour saisir l'URL du serveur."""
     if not HAS_TK:
-        return
+        return None
+
+    result = {"url": None}
 
     root = tk.Tk()
-    root.title("Node Monitor")
-    root.geometry("360x130")
+    root.title("Node Monitor — Configuration")
+    root.geometry("420x200")
     root.resizable(False, False)
     root.configure(bg="#0f1117")
 
@@ -77,46 +108,116 @@ def show_startup_window(success, error_msg=""):
     except Exception:
         pass
 
-    frame = tk.Frame(root, bg="#1a1d27", bd=0)
-    frame.place(relx=0, rely=0, relwidth=1, relheight=1)
-
-    if success:
-        icon_text = "✓"
-        icon_color = "#34d399"
-        title_text = "Serveur connecté"
-        sub_text = f"Nom : {AGENT_NAME}"
-    else:
-        icon_text = "✕"
-        icon_color = "#f87171"
-        title_text = "Impossible de joindre le serveur"
-        sub_text = error_msg[:48] if error_msg else "Vérifiez l'URL et votre connexion"
-
-    tk.Label(frame, text=icon_text, font=("Segoe UI", 28, "bold"),
-             fg=icon_color, bg="#1a1d27").place(relx=0.12, rely=0.5, anchor="center")
-
-    tk.Label(frame, text=title_text,
-             font=("Segoe UI", 12, "bold"),
-             fg="#e2e8f0", bg="#1a1d27").place(relx=0.57, rely=0.35, anchor="center")
-
-    tk.Label(frame, text=sub_text,
-             font=("Segoe UI", 9), fg="#6b7280",
-             bg="#1a1d27").place(relx=0.57, rely=0.58, anchor="center")
-
-    tk.Label(frame, text=f"ID  : {MACHINE_ID}",
-             font=("Consolas", 8), fg="#4f8ef7",
-             bg="#1a1d27").place(relx=0.57, rely=0.76, anchor="center")
-
-    root.after(4000, root.destroy)
-
     try:
         root.attributes("-topmost", True)
     except Exception:
         pass
 
+    frame = tk.Frame(root, bg="#1a1d27", bd=0)
+    frame.place(relx=0, rely=0, relwidth=1, relheight=1)
+
+    tk.Label(frame, text="Node Monitor",
+             font=("Segoe UI", 13, "bold"), fg="#e2e8f0",
+             bg="#1a1d27").place(relx=0.5, rely=0.13, anchor="center")
+
+    tk.Label(frame, text="Entrez l'adresse du serveur :",
+             font=("Segoe UI", 9), fg="#6b7280",
+             bg="#1a1d27").place(relx=0.5, rely=0.3, anchor="center")
+
+    entry_var = tk.StringVar(value=default_url)
+    entry = tk.Entry(frame, textvariable=entry_var, width=38,
+                     font=("Consolas", 9),
+                     bg="#0d1117", fg="#e2e8f0",
+                     insertbackground="#e2e8f0",
+                     relief="flat", bd=6)
+    entry.place(relx=0.5, rely=0.52, anchor="center")
+    entry.focus_set()
+
+    def on_connect():
+        url = entry_var.get().strip().rstrip('/')
+        if not url:
+            return
+        if not url.startswith('http'):
+            url = 'http://' + url
+        result["url"] = url
+        root.destroy()
+
+    entry.bind('<Return>', lambda e: on_connect())
+
+    btn = tk.Button(frame, text="Connecter", command=on_connect,
+                    font=("Segoe UI", 9, "bold"),
+                    bg="#4f8ef7", fg="#ffffff",
+                    relief="flat", padx=16, pady=5,
+                    cursor="hand2", activebackground="#3b7de8",
+                    activeforeground="#ffffff")
+    btn.place(relx=0.5, rely=0.78, anchor="center")
+
+    root.mainloop()
+    return result["url"]
+
+
+def ask_server_url_console(default_url=""):
+    """Demande l'URL du serveur en mode console."""
+    prompt = f"Adresse du serveur [{default_url}]: " if default_url else "Adresse du serveur: "
+    try:
+        val = input(prompt).strip().rstrip('/')
+    except EOFError:
+        val = ""
+    if not val:
+        return default_url
+    if not val.startswith('http'):
+        val = 'http://' + val
+    return val
+
+
+def show_status_window(success, server_url, error_msg=""):
+    """Affiche une fenêtre de statut de connexion."""
+    if not HAS_TK:
+        return
+
+    root = tk.Tk()
+    root.title("Node Monitor")
+    root.geometry("380x140")
+    root.resizable(False, False)
+    root.configure(bg="#0f1117")
+
+    try:
+        root.eval("tk::PlaceWindow . center")
+        root.attributes("-topmost", True)
+    except Exception:
+        pass
+
+    frame = tk.Frame(root, bg="#1a1d27", bd=0)
+    frame.place(relx=0, rely=0, relwidth=1, relheight=1)
+
+    if success:
+        icon_text, icon_color = "✓", "#34d399"
+        title_text = "Serveur connecté"
+        sub_text = f"Nom : {AGENT_NAME}"
+    else:
+        icon_text, icon_color = "✕", "#f87171"
+        title_text = "Impossible de joindre le serveur"
+        sub_text = (error_msg[:50] if error_msg else "Vérifiez l'URL et votre connexion")
+
+    tk.Label(frame, text=icon_text, font=("Segoe UI", 28, "bold"),
+             fg=icon_color, bg="#1a1d27").place(relx=0.11, rely=0.5, anchor="center")
+
+    tk.Label(frame, text=title_text,
+             font=("Segoe UI", 11, "bold"),
+             fg="#e2e8f0", bg="#1a1d27").place(relx=0.58, rely=0.3, anchor="center")
+
+    tk.Label(frame, text=sub_text, font=("Segoe UI", 9),
+             fg="#6b7280", bg="#1a1d27").place(relx=0.58, rely=0.52, anchor="center")
+
+    tk.Label(frame, text=f"ID : {MACHINE_ID}",
+             font=("Consolas", 8), fg="#4f8ef7",
+             bg="#1a1d27").place(relx=0.58, rely=0.74, anchor="center")
+
+    root.after(4000, root.destroy)
     root.mainloop()
 
 
-def get_metrics():
+def get_metrics(server_url):
     ips = []
     for iface, addrs in (psutil.net_if_addrs() if HAS_PSUTIL else {}).items():
         for addr in addrs:
@@ -152,12 +253,9 @@ def get_metrics():
                 })
             except Exception:
                 pass
-        mem_total = mem.total
-        mem_used = mem.used
-        mem_free = mem.available
+        mem_total, mem_used, mem_free = mem.total, mem.used, mem.available
         mem_pct = round(mem.percent, 1)
-        net_rx = net.bytes_recv
-        net_tx = net.bytes_sent
+        net_rx, net_tx = net.bytes_recv, net.bytes_sent
     else:
         cpu_pct = 0.0
         cpu_cores = os.cpu_count() or 1
@@ -195,11 +293,11 @@ def get_metrics():
     }
 
 
-def post_metrics():
-    data = get_metrics()
+def post_metrics(server_url):
+    data = get_metrics(server_url)
     body = json.dumps(data).encode("utf-8")
     req = urllib.request.Request(
-        f"{SERVER_URL}/api/agent-report",
+        f"{server_url}/api/agent-report",
         data=body,
         headers={"Content-Type": "application/json"},
         method="POST",
@@ -208,33 +306,50 @@ def post_metrics():
         return resp.status
 
 
-def send_loop():
+def send_loop(server_url):
     while True:
         try:
-            status = post_metrics()
-            print(f"[{time.strftime('%H:%M:%S')}] OK → {SERVER_URL} ({status})")
+            status = post_metrics(server_url)
+            print(f"[{time.strftime('%H:%M:%S')}] OK → {server_url} ({status})")
         except Exception as exc:
             print(f"[{time.strftime('%H:%M:%S')}] Erreur: {exc}")
         time.sleep(INTERVAL_SEC)
 
 
 def main():
-    global SERVER_URL, AGENT_NAME, INTERVAL_SEC
+    global AGENT_NAME, INTERVAL_SEC
 
     parser = argparse.ArgumentParser(description="Node Monitor Agent")
-    parser.add_argument("--server", default=SERVER_URL)
+    parser.add_argument("--server", default="", help="URL du serveur (ex: http://monserveur:5000)")
     parser.add_argument("--name", default=socket.gethostname())
     parser.add_argument("--interval", type=int, default=60)
     args = parser.parse_args()
 
-    SERVER_URL = args.server
     AGENT_NAME = args.name
     INTERVAL_SEC = args.interval
+
+    cfg = load_config()
+
+    if args.server:
+        server_url = args.server.rstrip('/')
+    elif cfg.get("server_url"):
+        server_url = cfg["server_url"]
+    elif HAS_TK:
+        server_url = ask_server_url_gui()
+        if not server_url:
+            sys.exit(0)
+    else:
+        server_url = ask_server_url_console()
+        if not server_url:
+            print("Aucune URL saisie. Arrêt.")
+            sys.exit(1)
+
+    save_config(server_url)
 
     print("=" * 52)
     print("  Node Monitor Agent")
     print("=" * 52)
-    print(f"  Serveur    : {SERVER_URL}")
+    print(f"  Serveur    : {server_url}")
     print(f"  Nom        : {AGENT_NAME}")
     print(f"  ID Machine : {MACHINE_ID}")
     print(f"  Intervalle : {INTERVAL_SEC}s")
@@ -244,7 +359,7 @@ def main():
     connected = False
     error_msg = ""
     try:
-        status = post_metrics()
+        status = post_metrics(server_url)
         connected = (status == 200)
         print(f"  Connexion  : OK ({status})")
     except Exception as exc:
@@ -253,12 +368,14 @@ def main():
 
     if HAS_TK:
         win_thread = threading.Thread(
-            target=show_startup_window, args=(connected, error_msg), daemon=True
+            target=show_status_window,
+            args=(connected, server_url, error_msg),
+            daemon=True
         )
         win_thread.start()
         win_thread.join()
 
-    worker = threading.Thread(target=send_loop, daemon=True)
+    worker = threading.Thread(target=send_loop, args=(server_url,), daemon=True)
     worker.start()
 
     try:

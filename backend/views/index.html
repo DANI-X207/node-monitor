@@ -88,7 +88,10 @@
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
                     <p>Aucun agent détecté sur cette machine</p>
                     <small>Téléchargez et lancez l'agent pour voir vos métriques ici</small>
-                    <button class="btn-download mt-1" onclick="toggleDownloadMenu()">Télécharger l'agent</button>
+                    <a href="/api/download/agent" download="agent.py" class="btn-download mt-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Télécharger l'agent
+                    </a>
                 </div>
                 <div id="myMachineData" style="display:none;">
                     <div class="info-bar">

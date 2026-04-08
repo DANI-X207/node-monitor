@@ -265,13 +265,13 @@ function showGuide(os) {
                 <p>Installez <a href="https://python.org" target="_blank">Python 3.10+</a> (cochez "Add Python to PATH") puis :</p>
                 <pre>pip install psutil pyinstaller</pre>
                 <h3>2. Télécharger l'agent</h3>
-                <p>Cliquez sur <strong>agent.py (tous systèmes)</strong> dans le menu — le serveur est déjà configuré dans le fichier.</p>
+                <p>Cliquez sur <strong>agent.py (tous systèmes)</strong> dans le menu ci-dessus pour télécharger le fichier.</p>
                 <h3>3. Compiler en .exe</h3>
                 <pre>pyinstaller --onefile --noconsole --name node-monitor-agent agent.py</pre>
-                <p>L'exécutable se trouve dans <code>dist\node-monitor-agent.exe</code></p>
+                <p>L'exécutable se trouve dans <code>dist\\node-monitor-agent.exe</code></p>
                 <h3>4. Lancer</h3>
-                <pre>dist\node-monitor-agent.exe</pre>
-                <p>Une fenêtre s'affiche brièvement pour confirmer la connexion, puis l'agent tourne en arrière-plan.</p>
+                <pre>dist\\node-monitor-agent.exe</pre>
+                <p>Au premier lancement, une fenêtre vous demande l'adresse du serveur. L'URL est ensuite sauvegardée dans <code>agent_config.json</code> pour les prochains démarrages.</p>
             `
         },
         linux: {
@@ -281,17 +281,17 @@ function showGuide(os) {
                 <pre>sudo apt update && sudo apt install python3 python3-pip -y
 pip3 install psutil pyinstaller</pre>
                 <h3>2. Télécharger l'agent</h3>
-                <p>Cliquez sur <strong>agent.py (tous systèmes)</strong> — le serveur est déjà configuré.</p>
+                <p>Cliquez sur <strong>agent.py (tous systèmes)</strong> dans le menu ci-dessus.</p>
                 <h3>3. Compiler en binaire</h3>
                 <pre>pyinstaller --onefile --name node-monitor-agent agent.py</pre>
                 <p>Le binaire se trouve dans <code>dist/node-monitor-agent</code></p>
                 <h3>4. Lancer</h3>
                 <pre>chmod +x dist/node-monitor-agent
 ./dist/node-monitor-agent</pre>
+                <p>Au premier lancement, entrez l'adresse du serveur dans le terminal. Elle est sauvegardée dans <code>agent_config.json</code>.</p>
                 <h3>5. Démarrage automatique (optionnel)</h3>
                 <pre>sudo cp dist/node-monitor-agent /usr/local/bin/
 sudo chmod +x /usr/local/bin/node-monitor-agent</pre>
-                <p>Créez un service systemd ou ajoutez au crontab <code>@reboot</code> pour le lancer automatiquement.</p>
             `
         },
         macos: {
@@ -301,12 +301,13 @@ sudo chmod +x /usr/local/bin/node-monitor-agent</pre>
                 <pre>brew install python3
 pip3 install psutil pyinstaller</pre>
                 <h3>2. Télécharger l'agent</h3>
-                <p>Cliquez sur <strong>agent.py (tous systèmes)</strong> — le serveur est déjà configuré.</p>
+                <p>Cliquez sur <strong>agent.py (tous systèmes)</strong> dans le menu ci-dessus.</p>
                 <h3>3. Compiler</h3>
                 <pre>pyinstaller --onefile --name node-monitor-agent agent.py</pre>
                 <h3>4. Lancer</h3>
                 <pre>chmod +x dist/node-monitor-agent
 ./dist/node-monitor-agent</pre>
+                <p>Au premier lancement, entrez l'adresse du serveur. Elle est sauvegardée dans <code>agent_config.json</code>.</p>
                 <h3>5. Note macOS</h3>
                 <p>Si macOS bloque l'exécution : <strong>Réglages Système → Sécurité → Autoriser quand même</strong>.</p>
             `

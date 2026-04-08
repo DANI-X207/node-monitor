@@ -2,7 +2,28 @@ const socket = io();
 let allMachines = [];
 let myMachineId = localStorage.getItem('myMachineId') || null;
 
-const ONLINE_THRESHOLD_MS = 150000;
+const ONLINE_THRESHOLD_MS = 30000;
+
+function formatUptime(totalSeconds) {
+    const s = Math.floor(totalSeconds);
+    if (s < 0) return '—';
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (d > 0) return `${d}j ${h}h ${m}m ${sec}s`;
+    if (h > 0) return `${h}h ${m}m ${sec}s`;
+    return `${m}m ${sec}s`;
+}
+
+function formatLastSeen(diffSeconds) {
+    const s = Math.floor(diffSeconds);
+    if (s < 5)  return 'À l\'instant';
+    if (s < 60) return `Il y a ${s}s`;
+    if (s < 3600) return `Il y a ${Math.floor(s / 60)}min`;
+    if (s < 86400) return `Il y a ${Math.floor(s / 3600)}h`;
+    return `Il y a ${Math.floor(s / 86400)}j`;
+}
 
 function mbToDisplay(mb) {
     if (mb == null) return '—';
@@ -10,9 +31,9 @@ function mbToDisplay(mb) {
     return mb.toFixed(0) + ' MB';
 }
 
-function isOnline(lastSeenUtcStr) {
-    const t = new Date(lastSeenUtcStr + ' UTC').getTime();
-    return (Date.now() - t) < ONLINE_THRESHOLD_MS;
+function isOnline(machine) {
+    if (!machine._lastSeenAt) return false;
+    return (Date.now() - machine._lastSeenAt) < ONLINE_THRESHOLD_MS;
 }
 
 function switchView(view) {
@@ -49,8 +70,13 @@ socket.on('machine_update', () => {
 });
 
 socket.on('metrics_update', (data) => {
-    const machine = allMachines.find(m => m.machine_id === data.machine_id);
+    let machine = allMachines.find(m => m.machine_id === data.machine_id);
     if (machine) {
+        const now = Date.now();
+        machine._lastSeenAt = now;
+        machine._uptimeBase = data.uptime_seconds || 0;
+        machine._uptimeAt = now;
+
         machine.metrics = {
             cpu: data.metrics.cpu_percent,
             ram: data.metrics.ram_percent,
@@ -60,11 +86,15 @@ socket.on('metrics_update', (data) => {
             network_sent_mb: data.metrics.network_sent_mb,
             network_recv_mb: data.metrics.network_recv_mb,
             uptime_display: data.metrics.uptime_display,
+            uptime_seconds: data.metrics.uptime_seconds,
             disks: data.metrics.disks || [],
             gpu: data.metrics.gpu_percent
         };
-        machine.last_seen = new Date().toISOString().replace('T', ' ').split('.')[0];
-        machine.last_seen_display = 'À l\'instant';
+
+        if (machine.machine_id === myMachineId && data.ip_address) {
+            machine.ip_address = data.ip_address;
+        }
+
         updateMachineCard(machine);
         if (machine.machine_id === myMachineId) renderMyMachineMetrics(machine);
     } else {
@@ -75,13 +105,39 @@ socket.on('metrics_update', (data) => {
 async function fetchMachines() {
     try {
         const res = await fetch('/api/machines');
-        allMachines = await res.json();
+        const fresh = await res.json();
+        const now = Date.now();
+
+        fresh.forEach(m => {
+            const existing = allMachines.find(x => x.machine_id === m.machine_id);
+            m._lastSeenAt = existing?._lastSeenAt || (new Date(m.last_seen + ' UTC').getTime());
+            m._uptimeBase = m.metrics?.uptime_seconds || existing?._uptimeBase || 0;
+            m._uptimeAt = existing?._uptimeAt || now;
+            if (existing?.ip_address) m.ip_address = existing.ip_address;
+        });
+        allMachines = fresh;
+
         renderGlobalView();
         const currentView = document.querySelector('.view.active')?.id;
         if (currentView === 'view-me') renderMyMachine();
     } catch(e) {
         console.error('Fetch error:', e);
     }
+}
+
+async function fetchMyMachineIp() {
+    if (!myMachineId) return;
+    try {
+        const res = await fetch(`/api/machines/${myMachineId}`);
+        if (!res.ok) return;
+        const detail = await res.json();
+        const machine = allMachines.find(m => m.machine_id === myMachineId);
+        if (machine && detail.ip_address) {
+            machine.ip_address = detail.ip_address;
+            const ipEl = document.getElementById('me-ip');
+            if (ipEl) ipEl.textContent = detail.ip_address;
+        }
+    } catch(e) {}
 }
 
 function renderGlobalView() {
@@ -130,6 +186,7 @@ function createMachineCard(machine) {
     card.addEventListener('click', () => {
         myMachineId = machine.machine_id;
         localStorage.setItem('myMachineId', myMachineId);
+        fetchMyMachineIp();
         switchView('me');
     });
     updateMachineCard(machine, card);
@@ -140,14 +197,20 @@ function updateMachineCard(machine, cardEl) {
     const card = cardEl || document.querySelector(`.machine-card[data-machine-id="${machine.machine_id}"]`);
     if (!card) return;
 
-    const online = isOnline(machine.last_seen);
+    const online = isOnline(machine);
     const cpu = machine.metrics?.cpu ?? 0;
     const ram = machine.metrics?.ram ?? 0;
     const ramUsed = machine.metrics?.ram_used_mb;
-    const uptime = machine.metrics?.uptime_display || '—';
-    const lastSeenTxt = machine.last_seen_display || machine.last_seen || '—';
     const osDisplay = machine.os_display || machine.os_type || '—';
     const isMine = machine.machine_id === myMachineId;
+
+    const elapsedSec = machine._lastSeenAt ? (Date.now() - machine._lastSeenAt) / 1000 : null;
+    const lastSeenTxt = elapsedSec !== null ? formatLastSeen(elapsedSec) : '—';
+
+    const uptimeSec = machine._uptimeBase != null && machine._uptimeAt
+        ? machine._uptimeBase + (Date.now() - machine._uptimeAt) / 1000
+        : null;
+    const uptimeTxt = uptimeSec !== null ? formatUptime(uptimeSec) : '—';
 
     card.innerHTML = `
         <div class="card-top">
@@ -171,7 +234,7 @@ function updateMachineCard(machine, cardEl) {
         </div>
         <div class="card-footer">
             <span>RAM: ${ramUsed != null ? mbToDisplay(ramUsed) : '—'}</span>
-            <span>Uptime: ${uptime}</span>
+            <span>Uptime: ${uptimeTxt}</span>
             <span>Vu ${lastSeenTxt}</span>
         </div>
     `;
@@ -194,7 +257,7 @@ function renderMyMachine() {
     noAgent.style.display = 'none';
     machineData.style.display = '';
 
-    const online = isOnline(machine.last_seen);
+    const online = isOnline(machine);
     statusBadge.textContent = online ? 'En ligne' : 'Hors ligne';
     statusBadge.className = 'badge ' + (online ? 'badge-online' : 'badge-offline');
 
@@ -202,10 +265,34 @@ function renderMyMachine() {
     document.getElementById('me-os').textContent = machine.os_display || machine.os_type || '—';
     document.getElementById('me-arch').textContent = machine.architecture || '—';
     document.getElementById('me-cores').textContent = machine.cpu_cores_logical || '—';
-    document.getElementById('me-uptime').textContent = machine.metrics?.uptime_display || '—';
-    document.getElementById('me-lastseen').textContent = machine.last_seen_display || machine.last_seen || '—';
+    document.getElementById('me-ip').textContent = machine.ip_address || '—';
 
+    if (!machine.ip_address) fetchMyMachineIp();
+
+    tickMyMachine(machine);
     renderMyMachineMetrics(machine);
+}
+
+function tickMyMachine(machine) {
+    if (!machine) return;
+
+    const elapsedSec = machine._lastSeenAt ? (Date.now() - machine._lastSeenAt) / 1000 : null;
+    const uptimeSec = machine._uptimeBase != null && machine._uptimeAt
+        ? machine._uptimeBase + (Date.now() - machine._uptimeAt) / 1000
+        : null;
+
+    const uptimeEl = document.getElementById('me-uptime');
+    const lastSeenEl = document.getElementById('me-lastseen');
+    const statusBadge = document.getElementById('myMachineStatus');
+
+    if (uptimeEl && uptimeSec !== null) uptimeEl.textContent = formatUptime(uptimeSec);
+    if (lastSeenEl && elapsedSec !== null) lastSeenEl.textContent = formatLastSeen(elapsedSec);
+
+    if (statusBadge) {
+        const online = isOnline(machine);
+        statusBadge.textContent = online ? 'En ligne' : 'Hors ligne';
+        statusBadge.className = 'badge ' + (online ? 'badge-online' : 'badge-offline');
+    }
 }
 
 function renderMyMachineMetrics(machine) {
@@ -324,6 +411,20 @@ pip3 install psutil pyinstaller</pre>
 function closeGuide() {
     document.getElementById('guideModal').classList.remove('open');
 }
+
+setInterval(() => {
+    const now = Date.now();
+
+    allMachines.forEach(machine => {
+        updateMachineCard(machine);
+    });
+
+    const currentView = document.querySelector('.view.active')?.id;
+    if (currentView === 'view-me' && myMachineId) {
+        const machine = allMachines.find(m => m.machine_id === myMachineId);
+        if (machine) tickMyMachine(machine);
+    }
+}, 1000);
 
 setInterval(fetchMachines, 15000);
 fetchMachines();

@@ -77,6 +77,8 @@ module.exports = (io) => {
 
       io.emit('metrics_update', {
         machine_id: machineId,
+        ip_address: firstIp,
+        uptime_seconds: uptime,
         metrics: {
           cpu_percent: metrics.cpu_percent,
           ram_percent: metrics.ram_percent,
@@ -86,6 +88,7 @@ module.exports = (io) => {
           network_sent_mb: metrics.network_sent_mb,
           network_recv_mb: metrics.network_recv_mb,
           uptime_display: metrics.uptime_display,
+          uptime_seconds: uptime,
           disks: disksMapped,
           gpu_percent: null
         }
@@ -126,6 +129,7 @@ module.exports = (io) => {
             network_sent_mb: metrics.network_sent_mb,
             network_recv_mb: metrics.network_recv_mb,
             uptime_display: metrics.uptime_display,
+            uptime_seconds: metrics.uptime_seconds,
             disks: metrics.disks || [],
             gpu: metrics.gpu_percent
           } : {}
@@ -146,6 +150,7 @@ module.exports = (io) => {
       res.json({
         machine_id: machine.machine_id,
         hostname: machine.hostname,
+        ip_address: machine.ip_address || null,
         os_display: machine.os_display || machine.os_type,
         os_type: machine.os_type,
         architecture: machine.architecture,

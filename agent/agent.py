@@ -45,8 +45,9 @@ try:
 except ImportError:
     HAS_TK = False
 
+DEFAULT_SERVER = "##SERVER_URL##"
 AGENT_NAME = socket.gethostname()
-INTERVAL_SEC = 60
+INTERVAL_SEC = 5
 
 
 def get_machine_id():
@@ -329,17 +330,18 @@ def main():
     INTERVAL_SEC = args.interval
 
     cfg = load_config()
+    injected = DEFAULT_SERVER if '##' not in DEFAULT_SERVER else ""
 
     if args.server:
         server_url = args.server.rstrip('/')
     elif cfg.get("server_url"):
         server_url = cfg["server_url"]
     elif HAS_TK:
-        server_url = ask_server_url_gui()
+        server_url = ask_server_url_gui(default_url=injected)
         if not server_url:
             sys.exit(0)
     else:
-        server_url = ask_server_url_console()
+        server_url = ask_server_url_console(default_url=injected)
         if not server_url:
             print("Aucune URL saisie. Arrêt.")
             sys.exit(1)

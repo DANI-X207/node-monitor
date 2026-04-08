@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring PC - Dashboard</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>🖥️ Monitoring PC</h1>
+            <span id="connection-status" class="status-badge offline">● Déconnecté</span>
+        </div>
+    </header>
+
+    <nav class="navigation">
+        <button class="nav-btn active" data-filter="all">Tous (0)</button>
+        <button class="nav-btn" data-filter="online">En ligne (0)</button>
+        <button class="nav-btn" data-filter="offline">Hors ligne (0)</button>
+        <a href="/download" class="nav-btn download-btn">⬇️ Télécharger Agent</a>
+    </nav>
+
+    <main class="container">
+        <div id="machines-container" class="machines-grid">
+            <div class="loading"><p>Chargement...</p></div>
+        </div>
+    </main>
+
+    <div id="machine-detail-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-header">
+                <h2 id="modal-hostname"></h2>
+                <span id="modal-status" class="status-badge"></span>
+            </div>
+            <div class="modal-body">
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <strong>IP</strong>
+                        <p id="modal-ip"></p>
+                    </div>
+                    <div class="detail-item">
+                        <strong>OS</strong>
+                        <p id="modal-os"></p>
+                    </div>
+                </div>
+
+                <div class="charts-container">
+                    <div class="chart-box">
+                        <h3>CPU (24h)</h3>
+                        <canvas id="chart-cpu"></canvas>
+                    </div>
+                    <div class="chart-box">
+                        <h3>RAM (24h)</h3>
+                        <canvas id="chart-ram"></canvas>
+                    </div>
+                    <div class="chart-box">
+                        <h3>DISK (24h)</h3>
+                        <canvas id="chart-disk"></canvas>
+                    </div>
+                </div>
+
+                <div class="metrics-table">
+                    <h3>Métriques en Temps Réel</h3>
+                    <table>
+                        <tr><td>CPU</td><td><div class="metric-bar"><span id="modal-cpu-val" class="metric-fill"></span></div></td><td id="modal-cpu-percent">0%</td></tr>
+                        <tr><td>RAM</td><td><div class="metric-bar"><span id="modal-ram-val" class="metric-fill"></span></div></td><td id="modal-ram-percent">0%</td></tr>
+                        <tr><td>DISK</td><td><div class="metric-bar"><span id="modal-disk-val" class="metric-fill"></span></div></td><td id="modal-disk-percent">0%</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Dernière mise à jour: <span id="last-update">--:--:--</span></p>
+    </footer>
+
+    <script src="/js/script.js"></script>
+</body>
+</html>

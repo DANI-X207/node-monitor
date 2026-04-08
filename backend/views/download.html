@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Télécharger l'Agent</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>⬇️ Télécharger l'Agent</h1>
+            <a href="/" class="nav-btn">← Retour</a>
+        </div>
+    </header>
+
+    <main class="container" style="max-width: 900px;">
+        <section class="download-section">
+            <h2>Sélectionnez votre Système d'Exploitation</h2>
+            
+            <div class="os-options">
+                <div class="os-btn" data-os="windows">
+                    <span class="os-icon">🪟</span>
+                    <span class="os-name">Windows</span>
+                    <span class="os-info">Exécutable (.exe)</span>
+                </div>
+                
+                <div class="os-btn" data-os="linux">
+                    <span class="os-icon">🐧</span>
+                    <span class="os-name">Linux</span>
+                    <span class="os-info">Archive (.tar.gz)</span>
+                </div>
+                
+                <div class="os-btn" data-os="macos">
+                    <span class="os-icon">🍎</span>
+                    <span class="os-name">macOS</span>
+                    <span class="os-info">Archive (.zip)</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="windows-section" class="installation-guide" style="display:none;">
+            <h2>Installation Windows</h2>
+            <div class="step">
+                <h3>Étape 1: Télécharger</h3>
+                <p>Téléchargez l'exécutable de l'agent.</p>
+                <a href="#" class="download-link">Télécharger PCMonitorAgent.exe</a>
+            </div>
+            <div class="step">
+                <h3>Étape 2: Exécuter</h3>
+                <pre><code>PCMonitorAgent.exe</code></pre>
+            </div>
+        </section>
+
+        <section id="linux-section" class="installation-guide" style="display:none;">
+            <h2>Installation Linux</h2>
+            <div class="step">
+                <h3>Étape 1: Extraire</h3>
+                <pre><code>tar -xzf agent-linux.tar.gz
+cd pc-monitor-agent</code></pre>
+            </div>
+            <div class="step">
+                <h3>Étape 2: Installer</h3>
+                <pre><code>pip install -r requirements.txt
+python3 agent.py</code></pre>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>PC Monitoring System v1.0</p>
+    </footer>
+
+    <script>
+        document.querySelectorAll('.os-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const os = this.dataset.os;
+                document.querySelectorAll('.installation-guide').forEach(g => g.style.display = 'none');
+                document.getElementById(os + '-section').style.display = 'block';
+                document.querySelectorAll('.os-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

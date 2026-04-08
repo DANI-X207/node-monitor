@@ -3,81 +3,195 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitoring PC - Dashboard</title>
+    <title>Node Monitor</title>
     <link rel="stylesheet" href="/css/style.css">
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <header>
-        <div class="header-content">
-            <h1>🖥️ Monitoring PC</h1>
-            <span id="connection-status" class="status-badge offline">● Déconnecté</span>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="brand-dot"></span>
+            <span class="brand-name">Node Monitor</span>
         </div>
-    </header>
-
-    <nav class="navigation">
-        <button class="nav-btn active" data-filter="all">Tous (0)</button>
-        <button class="nav-btn" data-filter="online">En ligne (0)</button>
-        <button class="nav-btn" data-filter="offline">Hors ligne (0)</button>
-        <a href="/download" class="nav-btn download-btn">⬇️ Télécharger Agent</a>
+        <div class="nav-links">
+            <a href="#" class="nav-link active" data-view="global" onclick="switchView('global'); return false;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                Vue Globale
+            </a>
+            <a href="#" class="nav-link" data-view="me" onclick="switchView('me'); return false;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                Ma Machine
+            </a>
+            <div class="download-wrapper">
+                <button class="btn-download" onclick="toggleDownloadMenu()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Télécharger l'agent
+                    <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="download-menu" id="downloadMenu">
+                    <div class="menu-section-label">SCRIPT PYTHON</div>
+                    <a href="/api/download/agent" class="menu-item" download="agent.py">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        agent.py (tous systèmes)
+                    </a>
+                    <div class="menu-section-label">GUIDES COMPILATION</div>
+                    <a href="#" class="menu-item" onclick="showGuide('windows'); return false;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                        Windows .exe
+                    </a>
+                    <a href="#" class="menu-item" onclick="showGuide('linux'); return false;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        Linux binaire
+                    </a>
+                    <a href="#" class="menu-item" onclick="showGuide('macos'); return false;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        macOS binaire
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="nav-status">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="connectionStatus">Déconnecté</span>
+        </div>
     </nav>
 
-    <main class="container">
-        <div id="machines-container" class="machines-grid">
-            <div class="loading"><p>Chargement...</p></div>
+    <main class="main-content">
+
+        <!-- VUE GLOBALE -->
+        <div id="view-global" class="view active">
+            <div class="view-header">
+                <h1 class="view-title">Vue Globale <span class="badge" id="machineCount">0 appareil</span></h1>
+                <span class="auto-refresh-label">Actualisation automatique à chaque rapport</span>
+            </div>
+            <div id="machines-grid" class="machines-grid">
+                <div class="empty-state" id="emptyGlobal">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                    <p>Aucun appareil connecté</p>
+                    <small>Lancez l'agent sur vos machines pour les voir apparaître ici</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- MA MACHINE -->
+        <div id="view-me" class="view">
+            <div class="view-header">
+                <h1 class="view-title">Ma Machine <span class="badge badge-offline" id="myMachineStatus">Hors ligne</span></h1>
+            </div>
+            <div id="my-machine-content">
+                <div class="no-agent-state" id="noAgentState">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                    <p>Aucun agent détecté sur cette machine</p>
+                    <small>Téléchargez et lancez l'agent pour voir vos métriques ici</small>
+                    <button class="btn-download mt-1" onclick="toggleDownloadMenu()">Télécharger l'agent</button>
+                </div>
+                <div id="myMachineData" style="display:none;">
+                    <div class="info-bar">
+                        <div class="info-item">
+                            <span class="info-label">HOSTNAME</span>
+                            <span class="info-value" id="me-hostname">—</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">OS</span>
+                            <span class="info-value" id="me-os">—</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">ARCHITECTURE</span>
+                            <span class="info-value" id="me-arch">—</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">CPU — CŒURS</span>
+                            <span class="info-value" id="me-cores">—</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">UPTIME</span>
+                            <span class="info-value" id="me-uptime">—</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">DERNIÈRE MISE À JOUR</span>
+                            <span class="info-value" id="me-lastseen">—</span>
+                        </div>
+                    </div>
+
+                    <div class="metrics-row">
+                        <div class="metric-panel">
+                            <div class="panel-header">
+                                <span class="panel-title">CPU</span>
+                                <span class="panel-value" id="me-cpu-val">0%</span>
+                            </div>
+                            <div class="gauge-track">
+                                <div class="gauge-labels"><span>0%</span><span>50%</span><span>100%</span></div>
+                                <div class="gauge-bar"><div class="gauge-fill gauge-cpu" id="me-cpu-bar" style="width:0%"></div></div>
+                            </div>
+                            <div class="panel-sub">
+                                <div><span class="sub-label">MODÈLE</span><span class="sub-value" id="me-cpu-model">—</span></div>
+                                <div><span class="sub-label">CŒURS</span><span class="sub-value" id="me-cpu-cores">—</span></div>
+                            </div>
+                        </div>
+
+                        <div class="metric-panel">
+                            <div class="panel-header">
+                                <span class="panel-title">MÉMOIRE</span>
+                                <span class="panel-value" id="me-ram-val">0%</span>
+                            </div>
+                            <div class="gauge-track">
+                                <div class="gauge-labels"><span>0%</span><span>50%</span><span>100%</span></div>
+                                <div class="gauge-bar"><div class="gauge-fill gauge-ram" id="me-ram-bar" style="width:0%"></div></div>
+                            </div>
+                            <div class="panel-sub">
+                                <div><span class="sub-label">UTILISÉ</span><span class="sub-value" id="me-ram-used">—</span></div>
+                                <div><span class="sub-label">TOTAL</span><span class="sub-value" id="me-ram-total">—</span></div>
+                                <div><span class="sub-label">LIBRE</span><span class="sub-value" id="me-ram-free">—</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="metrics-row">
+                        <div class="metric-panel">
+                            <div class="panel-header">
+                                <span class="panel-title">RÉSEAU</span>
+                            </div>
+                            <div class="network-stats">
+                                <div class="net-item">
+                                    <span class="net-arrow down">↓</span>
+                                    <div>
+                                        <span class="sub-label">REÇU TOTAL</span>
+                                        <span class="net-value" id="me-net-recv">—</span>
+                                    </div>
+                                </div>
+                                <div class="net-item">
+                                    <span class="net-arrow up">↑</span>
+                                    <div>
+                                        <span class="sub-label">ENVOYÉ TOTAL</span>
+                                        <span class="net-value" id="me-net-sent">—</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="metric-panel">
+                            <div class="panel-header">
+                                <span class="panel-title">DISQUES</span>
+                            </div>
+                            <div id="me-disks" class="disks-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
 
-    <div id="machine-detail-modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <div class="modal-header">
-                <h2 id="modal-hostname"></h2>
-                <span id="modal-status" class="status-badge"></span>
+    <!-- GUIDE MODAL -->
+    <div id="guideModal" class="modal-overlay" onclick="closeGuide()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <div class="modal-top">
+                <h2 id="guideTitle">Guide</h2>
+                <button class="modal-close" onclick="closeGuide()">✕</button>
             </div>
-            <div class="modal-body">
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <strong>IP</strong>
-                        <p id="modal-ip"></p>
-                    </div>
-                    <div class="detail-item">
-                        <strong>OS</strong>
-                        <p id="modal-os"></p>
-                    </div>
-                </div>
-
-                <div class="charts-container">
-                    <div class="chart-box">
-                        <h3>CPU (24h)</h3>
-                        <canvas id="chart-cpu"></canvas>
-                    </div>
-                    <div class="chart-box">
-                        <h3>RAM (24h)</h3>
-                        <canvas id="chart-ram"></canvas>
-                    </div>
-                    <div class="chart-box">
-                        <h3>DISK (24h)</h3>
-                        <canvas id="chart-disk"></canvas>
-                    </div>
-                </div>
-
-                <div class="metrics-table">
-                    <h3>Métriques en Temps Réel</h3>
-                    <table>
-                        <tr><td>CPU</td><td><div class="metric-bar"><span id="modal-cpu-val" class="metric-fill"></span></div></td><td id="modal-cpu-percent">0%</td></tr>
-                        <tr><td>RAM</td><td><div class="metric-bar"><span id="modal-ram-val" class="metric-fill"></span></div></td><td id="modal-ram-percent">0%</td></tr>
-                        <tr><td>DISK</td><td><div class="metric-bar"><span id="modal-disk-val" class="metric-fill"></span></div></td><td id="modal-disk-percent">0%</td></tr>
-                    </table>
-                </div>
-            </div>
+            <div id="guideContent" class="guide-content"></div>
         </div>
     </div>
-
-    <footer>
-        <p>Dernière mise à jour: <span id="last-update">--:--:--</span></p>
-    </footer>
 
     <script src="/js/script.js"></script>
 </body>

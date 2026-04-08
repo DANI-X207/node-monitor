@@ -1,6 +1,6 @@
-# Remote PC Monitoring System
+# Node Monitor — Remote PC Monitoring System
 
-A real-time system monitoring dashboard that tracks CPU, RAM, Disk, and GPU metrics from multiple client machines.
+A real-time system monitoring dashboard with dark UI that tracks CPU, RAM, Disk, Network and Uptime from multiple client machines.
 
 ## Architecture
 
@@ -8,38 +8,58 @@ A real-time system monitoring dashboard that tracks CPU, RAM, Disk, and GPU metr
 - **`backend/server.js`** - Main Express server, Socket.io setup, port 5000
 - **`backend/config.js`** - Server configuration (port, DB path, socket settings)
 - **`backend/database.js`** - SQLite database layer using `better-sqlite3`
-- **`backend/routes/api.js`** - REST API endpoints for machines and metrics
+- **`backend/routes/api.js`** - REST API: machines list, machine detail, history, visitor IP, agent.py download
 - **`backend/middleware/socketHandler.js`** - Real-time Socket.io event handlers
-- **`backend/views/`** - EJS-rendered HTML templates (index.html, download.html)
-- **`backend/public/`** - Static assets (CSS, client-side JS)
+- **`backend/views/index.html`** - Single-page app with Vue Globale + Ma Machine views
+- **`backend/public/css/style.css`** - Dark theme UI
+- **`backend/public/js/script.js`** - Dashboard logic (socket, rendering, view switching)
 
 ### Agent (Python)
-- **`agent/agent.py`** - Main agent entry point with Socket.io client
-- **`agent/system_info.py`** - System metrics collection using psutil
-- **`agent/config_agent.py`** - Agent configuration (server URL, intervals)
-- **`agent/build_agent.py`** - PyInstaller build script for standalone executables
+- **`agent/agent.py`** - Main agent with Socket.io client, sends metrics every 5s
+- **`agent/system_info.py`** - System metrics: CPU model/cores/%, RAM, Disks, Network, Uptime, MAC address
+- **`agent/config_agent.py`** - Agent config (SERVER_URL, intervals)
+- **`agent/build_agent.py`** - PyInstaller build script
 - **`agent/requirements.txt`** - Python dependencies
 
 ## Tech Stack
 - **Server**: Node.js, Express, Socket.io, better-sqlite3, EJS
-- **Dashboard**: Vanilla JS, Chart.js, Socket.io client
-- **Agent**: Python 3, psutil, python-socketio, PyInstaller
-- **Database**: SQLite (stored at `backend/data/monitoring.db`)
+- **Dashboard**: Vanilla JS, Socket.io client (no framework)
+- **Styling**: Pure CSS dark theme
+- **Agent**: Python 3, psutil, python-socketio
+- **Database**: SQLite at `backend/data/monitoring.db`
 
 ## Running the App
 
-The server runs via the "Start application" workflow:
+The "Start application" workflow runs:
 ```
 cd backend && node server.js
 ```
-Server listens on port 5000.
+Server listens on **port 5000**.
 
-## Key Features
-- Real-time metrics (CPU, RAM, Disk) via WebSockets
-- 24-hour historical charts per machine
-- Auto-reconnecting agents
-- Machine online/offline status tracking
-- Metrics cleanup (data older than 24h purged hourly)
+## UI Features
+
+### Vue Globale
+- All connected machines as cards
+- Shows: hostname, OS, CPU%, RAM%, RAM used, uptime, last seen
+- **IP addresses are hidden** from global view
+
+### Ma Machine
+- Auto-detected via IP matching between visitor and agent
+- Machine ID stored in localStorage for persistence
+- Shows: CPU (model, %, gauge), RAM (used/total/free, gauge), Disks (per-disk bars), Network (sent/recv)
+- Shows "no agent" state if no matching agent found
+
+### Télécharger l'agent (dropdown)
+- Direct download of `agent.py` from `/api/download/agent`
+- Compilation guides: Windows .exe, Linux binary, macOS binary
+
+## Machine Identification
+- Each agent is identified by its **MAC address** (used as `machine_id`)
+- Browser auto-detects "Ma Machine" by comparing visitor IP with agent IPs
+- Falls back to localStorage if previously identified
 
 ## Agent Setup
-Agents connect to the server URL configured in `agent/config_agent.py` (default: `http://localhost:5000`). Install Python deps: `pip install -r agent/requirements.txt`, then run `python agent.py`.
+1. Download `agent.py` from the dashboard
+2. `pip install -r requirements.txt`
+3. Set `SERVER_URL` in `config_agent.py`
+4. `python agent.py`

@@ -26,7 +26,6 @@ app.engine('html', require('ejs').renderFile);
 app.set('views', path.join(__dirname, 'views'));
 
 app.get('/', (req, res) => res.render('index.html'));
-app.get('/download', (req, res) => res.render('download.html'));
 
 app.use('/api', apiRoutes(io));
 
@@ -36,12 +35,11 @@ const startServer = async () => {
   try {
     await db.initializeDatabase();
     server.listen(config.PORT, config.HOST, () => {
-      console.log(`🚀 Serveur lancé sur http://${config.HOST}:${config.PORT}`);
+      console.log(`Server running on http://${config.HOST}:${config.PORT}`);
     });
-
     setInterval(db.cleanupOldMetrics, 3600000);
   } catch (err) {
-    console.error('Erreur au démarrage:', err);
+    console.error('Startup error:', err);
     process.exit(1);
   }
 };

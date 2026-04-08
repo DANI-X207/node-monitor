@@ -33,24 +33,24 @@ class MonitoringAgent:
     def setup_handlers(self):
         @self.sio.on('connect')
         def on_connect():
-            logger.info('Connecté au serveur')
+            logger.info('Connected to server')
             self.send_connection_info()
 
         @self.sio.on('disconnect')
         def on_disconnect():
-            logger.warning('Déconnecté du serveur')
+            logger.warning('Disconnected from server')
 
         @self.sio.on('connection_confirmed')
         def on_connection_confirmed(data):
-            logger.info(f'Connexion confirmée: {data}')
+            logger.info(f'Connection confirmed: {data}')
 
     def connect(self):
         try:
-            logger.info(f'Connexion à {SERVER_URL}...')
+            logger.info(f'Connecting to {SERVER_URL}...')
             self.sio.connect(SERVER_URL, wait_timeout=10)
             return True
         except Exception as e:
-            logger.error(f'Erreur connexion: {e}')
+            logger.error(f'Connection error: {e}')
             return False
 
     def disconnect(self):
@@ -61,27 +61,25 @@ class MonitoringAgent:
         try:
             self.machine_info = get_machine_info()
             self.sio.emit('connect_agent', self.machine_info)
-            logger.info(f'Infos envoyées: {self.machine_info["hostname"]}')
+            logger.info(f'Info sent: {self.machine_info["hostname"]} (MAC: {self.machine_info["mac_address"]})')
         except Exception as e:
-            logger.error(f'Erreur envoi infos: {e}')
+            logger.error(f'Error sending info: {e}')
 
     def send_metrics(self):
         try:
             if not self.sio.connected:
                 return
-
             metrics = collect_metrics()
             metrics['machine_id'] = self.machine_info['machine_id']
             self.sio.emit('system_metrics', metrics)
-            logger.debug(f'CPU={metrics["cpu_percent"]}%, RAM={metrics["ram_percent"]}%')
+            logger.debug(f'CPU={metrics["cpu_percent"]}% RAM={metrics["ram_percent"]}% Uptime={metrics["uptime_display"]}')
         except Exception as e:
-            logger.error(f'Erreur envoi métriques: {e}')
+            logger.error(f'Error sending metrics: {e}')
 
     def run(self):
-        logger.info('Démarrage de l\'agent...')
-        
+        logger.info('Starting agent...')
         if not self.connect():
-            logger.error('Impossible de se connecter')
+            logger.error('Cannot connect to server')
             sys.exit(1)
 
         try:
@@ -90,12 +88,12 @@ class MonitoringAgent:
                     self.send_metrics()
                 time.sleep(AGENT_UPDATE_INTERVAL)
         except KeyboardInterrupt:
-            logger.info('Arrêt...')
+            logger.info('Shutting down...')
         finally:
             self.disconnect()
 
     def stop(self):
-        logger.info('Arrêt de l\'agent...')
+        logger.info('Stopping agent...')
         self.running = False
         self.disconnect()
 
@@ -107,7 +105,6 @@ if __name__ == '__main__':
     agent = MonitoringAgent()
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
-
     try:
         agent.run()
     except KeyboardInterrupt:

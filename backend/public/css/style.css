@@ -280,6 +280,30 @@ body {
     box-shadow: 0 0 0 1px rgba(88,166,255,0.2);
 }
 
+.machine-card.is-mine {
+    border-color: rgba(88,166,255,0.6);
+    box-shadow: 0 0 0 1px rgba(88,166,255,0.15);
+}
+
+.machine-card.is-mine:hover {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 2px rgba(88,166,255,0.25);
+}
+
+.my-machine-banner {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--blue);
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(88,166,255,0.15);
+    text-transform: uppercase;
+}
+
 .card-top {
     display: flex;
     justify-content: space-between;

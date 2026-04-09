@@ -249,6 +249,8 @@ function updateMachineCard(machine, cardEl) {
     const osDisplay = machine.os_display || machine.os_type || '—';
     const isMine = machine.machine_id === myMachineId;
 
+    card.classList.toggle('is-mine', isMine);
+
     const elapsedSec = machine._lastSeenAt ? (Date.now() - machine._lastSeenAt) / 1000 : null;
     const lastSeenTxt = elapsedSec !== null ? formatLastSeen(elapsedSec) : '—';
 
@@ -258,9 +260,13 @@ function updateMachineCard(machine, cardEl) {
     const uptimeTxt = uptimeSec !== null ? formatUptime(uptimeSec) : '—';
 
     card.innerHTML = `
+        ${isMine ? `<div class="my-machine-banner">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            Votre machine
+        </div>` : ''}
         <div class="card-top">
             <div>
-                <div class="card-hostname">${machine.hostname || '—'}${isMine ? ' <span class="mine-badge">moi</span>' : ''}</div>
+                <div class="card-hostname">${machine.hostname || '—'}</div>
                 <div class="card-os">${osDisplay}</div>
             </div>
             <span class="card-status ${online ? 'online' : 'offline'}">${online ? 'En ligne' : 'Hors ligne'}</span>

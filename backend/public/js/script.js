@@ -534,7 +534,7 @@ function showGuide(os) {
                 <p>Double-cliquez sur <code>node-monitor-agent.exe</code>. Une fenêtre s'ouvre automatiquement.</p>
                 <h3>2. Connexion au serveur</h3>
                 <p>Au premier lancement, entrez l'adresse du serveur dans le champ prévu. Si l'URL est déjà pré-remplie, cliquez simplement sur <strong>Se reconnecter</strong>.</p>
-                <p>La configuration est sauvegardée dans <code>agent_config.json</code> à côté de l'exécutable.</p>
+                <p>L'adresse du serveur est mémorisée automatiquement pour les prochains lancements.</p>
                 <h3>3. État de l'agent</h3>
                 <p>Une fois connecté, la fenêtre affiche :</p>
                 <ul>
@@ -551,38 +551,130 @@ function showGuide(os) {
                 <p>Si Windows affiche un avertissement SmartScreen, cliquez sur <strong>Informations complémentaires → Exécuter quand même</strong>.</p>
             `
         },
-        linux: {
-            title: 'Linux — Notice d\'emploi',
+        'linux-debian': {
+            title: 'Linux — Debian / Ubuntu / Mint',
             html: `
                 <div style="margin-bottom:16px;">
-                    <a href="/api/download/linux" download="install-linux.sh" class="guide-download-btn">
+                    <a href="/api/download/linux/debian" download="install-linux-debian.sh" class="guide-download-btn">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Télécharger install-linux.sh
+                        Télécharger install-linux-debian.sh
                     </a>
                 </div>
                 <h3>1. Rendre le script exécutable et le lancer</h3>
-                <pre>chmod +x install-linux.sh
-./install-linux.sh</pre>
-                <p>Le script installe automatiquement les dépendances (<code>psutil</code>) et télécharge l'agent.</p>
+                <pre>chmod +x install-linux-debian.sh
+./install-linux-debian.sh</pre>
+                <p>Le script installe automatiquement Python 3, pip et <code>psutil</code> via <strong>apt</strong>, puis télécharge l'agent.</p>
                 <h3>2. Ce que fait l'installateur</h3>
                 <ul>
-                    <li>Vérifie que Python 3 est présent</li>
-                    <li>Installe <code>psutil</code> via pip3</li>
-                    <li>Télécharge <code>agent.py</code> dans <code>~/.node-monitor/</code></li>
-                    <li>Crée un script de lancement <code>node-monitor-agent.sh</code></li>
+                    <li>Installe <code>python3</code>, <code>python3-pip</code> si absents (<code>apt-get</code>)</li>
+                    <li>Installe <code>psutil</code> (pip ou paquet <code>python3-psutil</code>)</li>
+                    <li>Télécharge <code>agent.py</code> dans <code>~/.l2ig2-monitor/</code></li>
+                    <li>Crée le script de lancement <code>l2ig2-monitor-agent.sh</code></li>
                     <li>Propose l'installation comme <strong>service systemd</strong> (démarrage automatique)</li>
                 </ul>
                 <h3>3. Lancer l'agent manuellement</h3>
-                <pre>bash ~/.node-monitor/node-monitor-agent.sh</pre>
-                <p>Ou directement :</p>
-                <pre>python3 ~/.node-monitor/agent.py --server VOTRE_URL_SERVEUR</pre>
+                <pre>bash ~/.l2ig2-monitor/l2ig2-monitor-agent.sh</pre>
                 <h3>4. Service systemd (démarrage automatique)</h3>
-                <p>Répondez <strong>o</strong> à la question du script pour activer le démarrage automatique au boot.</p>
-                <pre>sudo systemctl status node-monitor-agent
-sudo systemctl stop node-monitor-agent
-sudo journalctl -u node-monitor-agent -f</pre>
-                <h3>5. État de l'agent</h3>
-                <p>L'agent envoie les métriques toutes les <strong>5 secondes</strong>. Arrêt manuel : <strong>Ctrl+C</strong>.</p>
+                <p>Répondez <strong>o</strong> à la question du script pour activer le démarrage au boot.</p>
+                <pre>sudo systemctl status l2ig2-monitor-agent
+sudo systemctl stop l2ig2-monitor-agent
+sudo journalctl -u l2ig2-monitor-agent -f</pre>
+                <h3>5. Désinstaller</h3>
+                <pre>sudo systemctl stop l2ig2-monitor-agent
+sudo systemctl disable l2ig2-monitor-agent
+rm -rf ~/.l2ig2-monitor</pre>
+            `
+        },
+        'linux-fedora': {
+            title: 'Linux — Fedora / RHEL / CentOS / Rocky',
+            html: `
+                <div style="margin-bottom:16px;">
+                    <a href="/api/download/linux/fedora" download="install-linux-fedora.sh" class="guide-download-btn">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Télécharger install-linux-fedora.sh
+                    </a>
+                </div>
+                <h3>1. Rendre le script exécutable et le lancer</h3>
+                <pre>chmod +x install-linux-fedora.sh
+./install-linux-fedora.sh</pre>
+                <p>Le script installe automatiquement Python 3, pip et <code>psutil</code> via <strong>dnf</strong> (ou <strong>yum</strong> sur les systèmes plus anciens).</p>
+                <h3>2. Ce que fait l'installateur</h3>
+                <ul>
+                    <li>Détecte automatiquement <code>dnf</code> ou <code>yum</code></li>
+                    <li>Installe <code>python3</code>, <code>python3-pip</code> si absents</li>
+                    <li>Installe <code>psutil</code> (pip ou paquet <code>python3-psutil</code>)</li>
+                    <li>Télécharge <code>agent.py</code> dans <code>~/.l2ig2-monitor/</code></li>
+                    <li>Crée le script de lancement <code>l2ig2-monitor-agent.sh</code></li>
+                    <li>Propose l'installation comme <strong>service systemd</strong></li>
+                </ul>
+                <h3>3. Lancer l'agent manuellement</h3>
+                <pre>bash ~/.l2ig2-monitor/l2ig2-monitor-agent.sh</pre>
+                <h3>4. Service systemd (démarrage automatique)</h3>
+                <pre>sudo systemctl status l2ig2-monitor-agent
+sudo systemctl stop l2ig2-monitor-agent
+sudo journalctl -u l2ig2-monitor-agent -f</pre>
+                <h3>5. Note SELinux (RHEL/CentOS)</h3>
+                <p>Si SELinux bloque l'exécution du service, lancez l'agent en mode CLI directement plutôt qu'en service systemd.</p>
+            `
+        },
+        'linux-arch': {
+            title: 'Linux — Arch / Manjaro / EndeavourOS',
+            html: `
+                <div style="margin-bottom:16px;">
+                    <a href="/api/download/linux/arch" download="install-linux-arch.sh" class="guide-download-btn">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Télécharger install-linux-arch.sh
+                    </a>
+                </div>
+                <h3>1. Rendre le script exécutable et le lancer</h3>
+                <pre>chmod +x install-linux-arch.sh
+./install-linux-arch.sh</pre>
+                <p>Le script installe les dépendances via <strong>pacman</strong> et télécharge l'agent.</p>
+                <h3>2. Ce que fait l'installateur</h3>
+                <ul>
+                    <li>Installe <code>python</code> si absent (<code>pacman -S python</code>)</li>
+                    <li>Installe <code>python-psutil</code> (dépôts Arch ou pip)</li>
+                    <li>Télécharge <code>agent.py</code> dans <code>~/.l2ig2-monitor/</code></li>
+                    <li>Crée le script de lancement <code>l2ig2-monitor-agent.sh</code></li>
+                    <li>Propose l'installation comme <strong>service systemd</strong></li>
+                </ul>
+                <h3>3. Lancer l'agent manuellement</h3>
+                <pre>bash ~/.l2ig2-monitor/l2ig2-monitor-agent.sh</pre>
+                <h3>4. Service systemd (démarrage automatique)</h3>
+                <pre>sudo systemctl status l2ig2-monitor-agent
+sudo systemctl stop l2ig2-monitor-agent
+sudo journalctl -u l2ig2-monitor-agent -f</pre>
+                <h3>5. Note pip sur Arch</h3>
+                <p>Arch déconseille l'utilisation de pip en dehors d'un environnement virtuel. Si pip échoue, le script utilise automatiquement <code>sudo pacman -S python-psutil</code>.</p>
+            `
+        },
+        'linux-opensuse': {
+            title: 'Linux — openSUSE Leap / Tumbleweed',
+            html: `
+                <div style="margin-bottom:16px;">
+                    <a href="/api/download/linux/opensuse" download="install-linux-opensuse.sh" class="guide-download-btn">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Télécharger install-linux-opensuse.sh
+                    </a>
+                </div>
+                <h3>1. Rendre le script exécutable et le lancer</h3>
+                <pre>chmod +x install-linux-opensuse.sh
+./install-linux-opensuse.sh</pre>
+                <p>Le script installe les dépendances via <strong>zypper</strong> et télécharge l'agent.</p>
+                <h3>2. Ce que fait l'installateur</h3>
+                <ul>
+                    <li>Installe <code>python3</code>, <code>python3-pip</code> si absents (<code>zypper</code>)</li>
+                    <li>Installe <code>psutil</code> (pip ou paquet <code>python3-psutil</code>)</li>
+                    <li>Télécharge <code>agent.py</code> dans <code>~/.l2ig2-monitor/</code></li>
+                    <li>Crée le script de lancement <code>l2ig2-monitor-agent.sh</code></li>
+                    <li>Propose l'installation comme <strong>service systemd</strong></li>
+                </ul>
+                <h3>3. Lancer l'agent manuellement</h3>
+                <pre>bash ~/.l2ig2-monitor/l2ig2-monitor-agent.sh</pre>
+                <h3>4. Service systemd (démarrage automatique)</h3>
+                <pre>sudo systemctl status l2ig2-monitor-agent
+sudo systemctl stop l2ig2-monitor-agent
+sudo journalctl -u l2ig2-monitor-agent -f</pre>
             `
         },
         macos: {

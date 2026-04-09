@@ -261,22 +261,39 @@ module.exports = (io) => {
     res.sendFile(exePath);
   });
 
-  router.get('/download/linux', (req, res) => {
-    const scriptPath = path.join(__dirname, '../../agent/install-linux.sh');
+  function serveLinuxScript(res, req, scriptFile, outputName) {
+    const scriptPath = path.join(__dirname, '../../agent', scriptFile);
     if (!fs.existsSync(scriptPath)) {
       return res.status(404).send('Installer not found');
     }
-
     const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
     const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:5000';
     const serverUrl = `${protocol}://${host}`;
-
     let content = fs.readFileSync(scriptPath, 'utf8');
     content = content.replace(/##SERVER_URL##/g, serverUrl);
-
-    res.setHeader('Content-Disposition', 'attachment; filename="install-linux.sh"');
+    res.setHeader('Content-Disposition', `attachment; filename="${outputName}"`);
     res.setHeader('Content-Type', 'text/x-shellscript; charset=utf-8');
     res.send(content);
+  }
+
+  router.get('/download/linux', (req, res) => {
+    serveLinuxScript(res, req, 'install-linux.sh', 'install-linux.sh');
+  });
+
+  router.get('/download/linux/debian', (req, res) => {
+    serveLinuxScript(res, req, 'install-linux-debian.sh', 'install-linux-debian.sh');
+  });
+
+  router.get('/download/linux/fedora', (req, res) => {
+    serveLinuxScript(res, req, 'install-linux-fedora.sh', 'install-linux-fedora.sh');
+  });
+
+  router.get('/download/linux/arch', (req, res) => {
+    serveLinuxScript(res, req, 'install-linux-arch.sh', 'install-linux-arch.sh');
+  });
+
+  router.get('/download/linux/opensuse', (req, res) => {
+    serveLinuxScript(res, req, 'install-linux-opensuse.sh', 'install-linux-opensuse.sh');
   });
 
   return router;

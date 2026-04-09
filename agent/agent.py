@@ -21,6 +21,7 @@ Créer un binaire Linux / macOS :
 
 import sys
 import os
+import re as _re
 import time
 import json
 import uuid
@@ -92,28 +93,63 @@ def get_machine_id():
 MACHINE_ID = get_machine_id()
 
 
-def get_config_path():
-    if getattr(sys, 'frozen', False):
-        base_dir = os.path.dirname(sys.executable)
-    else:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_dir, 'agent_config.json')
+def _get_launcher_path():
+    return os.path.join(os.path.expanduser("~"), ".l2ig2-monitor", "l2ig2-monitor-agent.sh")
 
 
 def load_config():
-    try:
-        with open(get_config_path(), 'r') as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    if "##" not in DEFAULT_SERVER and DEFAULT_SERVER.startswith("http"):
+        return {"server_url": DEFAULT_SERVER}
+    launcher = _get_launcher_path()
+    if os.path.exists(launcher):
+        try:
+            with open(launcher, 'r') as f:
+                content = f.read()
+            m = _re.search(r'--server\s+"?([^\s"]+)"?', content)
+            if m:
+                return {"server_url": m.group(1)}
+        except Exception:
+            pass
+    return {}
 
 
 def save_config(server_url):
-    try:
-        with open(get_config_path(), 'w') as f:
-            json.dump({"server_url": server_url}, f)
-    except Exception:
-        pass
+    launcher = _get_launcher_path()
+    if os.path.exists(launcher):
+        try:
+            with open(launcher, 'r') as f:
+                content = f.read()
+            new_content = _re.sub(
+                r'(--server\s+)"[^"]*"',
+                f'\\1"{server_url}"',
+                content
+            )
+            if new_content == content:
+                new_content = _re.sub(
+                    r'(--server\s+)\S+',
+                    f'\\1"{server_url}"',
+                    content
+                )
+            with open(launcher, 'w') as f:
+                f.write(new_content)
+            return
+        except Exception:
+            pass
+    if not getattr(sys, 'frozen', False):
+        try:
+            agent_path = os.path.abspath(__file__)
+            with open(agent_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            new_content = _re.sub(
+                r'^DEFAULT_SERVER = ".*"$',
+                f'DEFAULT_SERVER = "{server_url}"',
+                content,
+                flags=_re.MULTILINE
+            )
+            with open(agent_path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+        except Exception:
+            pass
 
 
 def get_metrics():

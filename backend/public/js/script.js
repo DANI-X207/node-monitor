@@ -493,7 +493,13 @@ function renderMyMachine() {
         machineData.style.display = 'none';
         statusBadge.textContent = 'Hors ligne';
         statusBadge.className = 'badge badge-offline';
-        if (!myMachineId) _showNoAgentMain();
+        if (myMachineId && allMachines.length > 0) {
+            localStorage.removeItem('myMachineId');
+            myMachineId = null;
+            _showNoAgentMain();
+        } else if (!myMachineId) {
+            _showNoAgentMain();
+        }
         return;
     }
 
@@ -708,21 +714,19 @@ async function getLocalIpViaWebRTC() {
 
 async function autoIdentifyMyMachine() {
     const saved = localStorage.getItem('myMachineId');
+
     if (saved) {
+        myMachineId = saved;
         if (allMachines.length > 0) {
             if (allMachines.find(m => m.machine_id === saved)) {
                 _applyIdentifiedMachine(saved);
-                return;
+            } else {
+                localStorage.removeItem('myMachineId');
+                myMachineId = null;
+                _showNoAgentMain();
             }
-        } else {
-            myMachineId = saved;
-            const detecting = document.getElementById('noAgentDetecting');
-            const main = document.getElementById('noAgentMain');
-            if (detecting) detecting.style.display = 'none';
-            if (main) main.style.display = 'none';
-            renderGlobalView();
-            return;
         }
+        return;
     }
 
     try {

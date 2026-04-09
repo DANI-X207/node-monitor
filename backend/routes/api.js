@@ -48,25 +48,28 @@ module.exports = (io) => {
 
   router.get('/identify', async (req, res) => {
     try {
-      const clientIp = getClientIp(req);
       const machines = await db.getMachines();
+      const localIp = req.query.localIp || null;
 
+      if (localIp) {
+        for (const machine of machines) {
+          try {
+            const storedIps = JSON.parse(machine.ip_addresses || '[]');
+            for (const ipEntry of storedIps) {
+              const ip = typeof ipEntry === 'string' ? ipEntry.split(':').pop() : null;
+              if (ip && ip === localIp) {
+                return res.json({ machine_id: machine.machine_id });
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      const clientIp = getClientIp(req);
       for (const machine of machines) {
         if (machine.source_ip && machine.source_ip === clientIp) {
           return res.json({ machine_id: machine.machine_id });
         }
-      }
-
-      for (const machine of machines) {
-        try {
-          const localIps = JSON.parse(machine.ip_addresses || '[]');
-          for (const ipEntry of localIps) {
-            const ip = typeof ipEntry === 'string' ? ipEntry.split(':').pop() : null;
-            if (ip && ip === clientIp) {
-              return res.json({ machine_id: machine.machine_id });
-            }
-          }
-        } catch (e) {}
       }
 
       res.json({ machine_id: null });

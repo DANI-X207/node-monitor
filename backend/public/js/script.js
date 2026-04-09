@@ -487,21 +487,18 @@ function renderMyMachine() {
     const noAgent = document.getElementById('noAgentState');
     const machineData = document.getElementById('myMachineData');
     const statusBadge = document.getElementById('myMachineStatus');
-    const btnChange = document.getElementById('btnChangeMachine');
 
     if (!machine) {
         if (noAgent) noAgent.style.display = '';
         machineData.style.display = 'none';
         statusBadge.textContent = 'Hors ligne';
         statusBadge.className = 'badge badge-offline';
-        if (btnChange && !myMachineId) btnChange.style.display = 'none';
         if (!myMachineId) _showNoAgentMain();
         return;
     }
 
     if (noAgent) noAgent.style.display = 'none';
     machineData.style.display = '';
-    if (btnChange) btnChange.style.display = '';
 
     const online = isOnline(machine);
     statusBadge.textContent = online ? 'En ligne' : 'Hors ligne';
@@ -664,8 +661,6 @@ function closeMachineModal() {
 function _applyIdentifiedMachine(machineId) {
     myMachineId = machineId;
     localStorage.setItem('myMachineId', machineId);
-    const btnChange = document.getElementById('btnChangeMachine');
-    if (btnChange) btnChange.style.display = '';
     const detecting = document.getElementById('noAgentDetecting');
     const main = document.getElementById('noAgentMain');
     if (detecting) detecting.style.display = 'none';
@@ -683,6 +678,34 @@ function _showNoAgentMain() {
     if (main) main.style.display = '';
 }
 
+async function getLocalIpViaWebRTC() {
+    return new Promise((resolve) => {
+        try {
+            const pc = new RTCPeerConnection({ iceServers: [] });
+            const ips = new Set();
+            pc.createDataChannel('');
+            pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(() => resolve(null));
+            pc.onicecandidate = (ice) => {
+                if (!ice || !ice.candidate || !ice.candidate.candidate) {
+                    pc.close();
+                    const found = [...ips].find(ip => !ip.startsWith('127.') && !ip.startsWith('169.254.'));
+                    resolve(found || null);
+                    return;
+                }
+                const m = ice.candidate.candidate.match(/\b(\d{1,3}(\.\d{1,3}){3})\b/);
+                if (m) ips.add(m[1]);
+            };
+            setTimeout(() => {
+                pc.close();
+                const found = [...ips].find(ip => !ip.startsWith('127.') && !ip.startsWith('169.254.'));
+                resolve(found || null);
+            }, 2500);
+        } catch(e) {
+            resolve(null);
+        }
+    });
+}
+
 async function autoIdentifyMyMachine() {
     const saved = localStorage.getItem('myMachineId');
     if (saved) {
@@ -693,8 +716,6 @@ async function autoIdentifyMyMachine() {
             }
         } else {
             myMachineId = saved;
-            const btnChange = document.getElementById('btnChangeMachine');
-            if (btnChange) btnChange.style.display = '';
             const detecting = document.getElementById('noAgentDetecting');
             const main = document.getElementById('noAgentMain');
             if (detecting) detecting.style.display = 'none';
@@ -705,7 +726,9 @@ async function autoIdentifyMyMachine() {
     }
 
     try {
-        const res = await fetch('/api/identify');
+        const localIp = await getLocalIpViaWebRTC();
+        const url = localIp ? `/api/identify?localIp=${encodeURIComponent(localIp)}` : '/api/identify';
+        const res = await fetch(url);
         const data = await res.json();
         if (data.machine_id) {
             _applyIdentifiedMachine(data.machine_id);
@@ -714,19 +737,6 @@ async function autoIdentifyMyMachine() {
         }
     } catch(e) {
         _showNoAgentMain();
-    }
-}
-
-function unlinkMyMachine() {
-    myMachineId = null;
-    localStorage.removeItem('myMachineId');
-    const btnChange = document.getElementById('btnChangeMachine');
-    if (btnChange) btnChange.style.display = 'none';
-    renderGlobalView();
-    const currentView = document.querySelector('.view.active')?.id;
-    if (currentView === 'view-me') {
-        _showNoAgentMain();
-        renderMyMachine();
     }
 }
 

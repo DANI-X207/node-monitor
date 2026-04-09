@@ -65,13 +65,6 @@ module.exports = (io) => {
         }
       }
 
-      const clientIp = getClientIp(req);
-      for (const machine of machines) {
-        if (machine.source_ip && machine.source_ip === clientIp) {
-          return res.json({ machine_id: machine.machine_id });
-        }
-      }
-
       res.json({ machine_id: null });
     } catch (err) {
       res.json({ machine_id: null });

@@ -3,8 +3,6 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../database');
 
-const agentSourceIps = new Map();
-
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
   if (forwarded) return forwarded.split(',')[0].trim();
@@ -37,12 +35,9 @@ module.exports = (io) => {
   router.get('/identify', async (req, res) => {
     try {
       const clientIp = getClientIp(req);
-      for (const [machineId, sourceIp] of agentSourceIps.entries()) {
-        if (sourceIp === clientIp) return res.json({ machine_id: machineId });
-      }
       const machines = await db.getMachines();
       for (const machine of machines) {
-        if (machine.ip_address && machine.ip_address === clientIp) {
+        if (machine.source_ip && machine.source_ip === clientIp) {
           return res.json({ machine_id: machine.machine_id });
         }
       }
@@ -59,7 +54,6 @@ module.exports = (io) => {
 
       const machineId = data.agentId;
       const sourceIp = getClientIp(req);
-      agentSourceIps.set(machineId, sourceIp);
       const allIps = data.ips || [];
       const firstIp = allIps.length > 0 ? allIps[0].split(':').pop() : '';
       const osDisplay = data.os || data.platform || 'Unknown';
@@ -70,6 +64,7 @@ module.exports = (io) => {
         mac_address: machineId,
         hostname: data.hostname || data.name || 'Unknown',
         ip_address: firstIp,
+        source_ip: sourceIp,
         ip_addresses: JSON.stringify(allIps),
         os_type: osType,
         os_display: osDisplay,

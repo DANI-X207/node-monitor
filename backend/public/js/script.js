@@ -5,6 +5,151 @@ let currentModalMachineId = null;
 
 const ONLINE_THRESHOLD_MS = 30000;
 
+const MAX_HISTORY_POINTS = 60;
+const machineHistory = {};
+let modalChart = null;
+let meChart = null;
+
+function pushHistory(machineId, cpu, ram) {
+    if (!machineHistory[machineId]) machineHistory[machineId] = [];
+    const buf = machineHistory[machineId];
+    buf.push({ time: new Date(), cpu: cpu ?? 0, ram: ram ?? 0 });
+    if (buf.length > MAX_HISTORY_POINTS) buf.shift();
+}
+
+function makeChartConfig(buf) {
+    const labels = buf.map(p => {
+        const d = p.time;
+        return d.getHours().toString().padStart(2,'0') + ':' +
+               d.getMinutes().toString().padStart(2,'0') + ':' +
+               d.getSeconds().toString().padStart(2,'0');
+    });
+    return {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'CPU %',
+                    data: buf.map(p => p.cpu),
+                    borderColor: '#4f8ef7',
+                    backgroundColor: 'rgba(79,142,247,0.12)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    borderWidth: 2
+                },
+                {
+                    label: 'RAM %',
+                    data: buf.map(p => p.ram),
+                    borderColor: '#3dd68c',
+                    backgroundColor: 'rgba(61,214,140,0.10)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    borderWidth: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 150 },
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1c2330',
+                    titleColor: '#e6edf3',
+                    bodyColor: '#8b949e',
+                    borderColor: '#30363d',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: false
+                },
+                y: {
+                    min: 0,
+                    max: 100,
+                    grid: { color: 'rgba(48,54,61,0.6)' },
+                    ticks: {
+                        color: '#8b949e',
+                        font: { size: 10 },
+                        callback: v => v + '%'
+                    }
+                }
+            }
+        }
+    };
+}
+
+function updateChartData(chart, buf) {
+    if (!chart) return;
+    chart.data.labels = buf.map(p => {
+        const d = p.time;
+        return d.getHours().toString().padStart(2,'0') + ':' +
+               d.getMinutes().toString().padStart(2,'0') + ':' +
+               d.getSeconds().toString().padStart(2,'0');
+    });
+    chart.data.datasets[0].data = buf.map(p => p.cpu);
+    chart.data.datasets[1].data = buf.map(p => p.ram);
+    chart.update('none');
+}
+
+function initModalChart(machineId) {
+    const canvas = document.getElementById('mm-chart');
+    if (!canvas) return;
+    if (modalChart) { modalChart.destroy(); modalChart = null; }
+    const buf = machineHistory[machineId] || [];
+    modalChart = new Chart(canvas, makeChartConfig(buf));
+}
+
+function initMeChart() {
+    const canvas = document.getElementById('me-chart');
+    if (!canvas) return;
+    if (meChart) return;
+    const buf = myMachineId ? (machineHistory[myMachineId] || []) : [];
+    meChart = new Chart(canvas, makeChartConfig(buf));
+}
+
+function destroyMeChart() {
+    if (meChart) { meChart.destroy(); meChart = null; }
+}
+
+async function setFrequency(val) {
+    try {
+        await fetch('/api/settings/interval', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ interval: parseInt(val) })
+        });
+    } catch(e) {
+        console.error('setFrequency error:', e);
+    }
+}
+
+async function loadCurrentInterval() {
+    try {
+        const res = await fetch('/api/settings/interval');
+        const data = await res.json();
+        const sel = document.getElementById('freqSelect');
+        if (sel && data.interval) {
+            const opt = sel.querySelector(`option[value="${data.interval}"]`);
+            if (opt) sel.value = data.interval;
+        }
+    } catch(e) {}
+}
+
+socket.on('interval_changed', ({ interval }) => {
+    const sel = document.getElementById('freqSelect');
+    if (sel) sel.value = interval;
+});
+
 function formatUptime(totalSeconds) {
     const s = Math.floor(totalSeconds);
     if (s < 0) return '—';
@@ -44,6 +189,7 @@ function switchView(view) {
     const navEl = document.querySelector(`[data-view="${view}"]`);
     if (navEl) navEl.classList.add('active');
     if (view === 'me') renderMyMachine();
+    else destroyMeChart();
 }
 
 function toggleDownloadMenu() {
@@ -111,12 +257,18 @@ socket.on('metrics_update', (data) => {
         if (data.ip_addresses) machine.ip_addresses = data.ip_addresses;
         if (data.interfaces && data.interfaces.length) machine.interfaces = data.interfaces;
 
+        pushHistory(data.machine_id, data.metrics.cpu_percent, data.metrics.ram_percent);
+
         updateMachineCard(machine);
         if (machine.machine_id === myMachineId) {
             renderMyMachineMetrics(machine);
             renderMyMachineInterfaces(machine);
+            if (meChart) updateChartData(meChart, machineHistory[machine.machine_id] || []);
         }
-        if (machine.machine_id === currentModalMachineId) fillMachineModal(machine);
+        if (machine.machine_id === currentModalMachineId) {
+            fillMachineModal(machine);
+            if (modalChart) updateChartData(modalChart, machineHistory[machine.machine_id] || []);
+        }
     } else {
         fetchMachines();
     }
@@ -364,6 +516,7 @@ function renderMyMachine() {
 
     tickMyMachine(machine);
     renderMyMachineMetrics(machine);
+    requestAnimationFrame(() => initMeChart());
 }
 
 function tickMyMachine(machine) {
@@ -438,6 +591,7 @@ function showMachineModal(machineId) {
     currentModalMachineId = machineId;
     fillMachineModal(machine);
     document.getElementById('machineModal').classList.add('open');
+    requestAnimationFrame(() => initModalChart(machineId));
 }
 
 function fillMachineModal(machine) {
@@ -500,6 +654,7 @@ function fillMachineModal(machine) {
 function closeMachineModal() {
     document.getElementById('machineModal').classList.remove('open');
     currentModalMachineId = null;
+    if (modalChart) { modalChart.destroy(); modalChart = null; }
 }
 
 async function autoIdentifyMyMachine() {
@@ -538,7 +693,7 @@ function showGuide(os) {
                 <h3>3. État de l'agent</h3>
                 <p>Une fois connecté, la fenêtre affiche :</p>
                 <ul>
-                    <li>✓ <strong>Connecté</strong> — les métriques sont envoyées toutes les <strong>5 secondes</strong></li>
+                    <li>✓ <strong>Connecté</strong> — les métriques sont envoyées à la fréquence choisie sur le tableau de bord</li>
                     <li>Nom de la machine et identifiant unique</li>
                     <li>Heure du dernier envoi et compteur total</li>
                 </ul>
@@ -758,3 +913,4 @@ setInterval(fetchMachines, 15000);
 fetchMachines();
 autoIdentifyMyMachine();
 setInterval(autoIdentifyMyMachine, 30000);
+loadCurrentInterval();

@@ -64,6 +64,17 @@
                 </div>
             </div>
         </div>
+        <div class="freq-wrapper">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <select id="freqSelect" onchange="setFrequency(this.value)" title="Fréquence de transfert agent → serveur">
+                <option value="1">1 s</option>
+                <option value="2">2 s</option>
+                <option value="5">5 s</option>
+                <option value="10">10 s</option>
+                <option value="30">30 s</option>
+                <option value="60">1 min</option>
+            </select>
+        </div>
         <div class="nav-status">
             <span class="status-dot" id="statusDot"></span>
             <span id="connectionStatus">Déconnecté</span>
@@ -186,6 +197,19 @@
                         </div>
                     </div>
 
+                    <div class="me-chart-section">
+                        <div class="mm-chart-header">
+                            <span class="panel-title">HISTORIQUE TEMPS RÉEL</span>
+                            <span class="mm-chart-legend">
+                                <span class="legend-dot cpu-dot"></span>CPU
+                                <span class="legend-dot ram-dot"></span>RAM
+                            </span>
+                        </div>
+                        <div class="mm-chart-wrap">
+                            <canvas id="me-chart"></canvas>
+                        </div>
+                    </div>
+
                     <div class="metrics-row">
                         <div class="metric-panel">
                             <div class="panel-header">
@@ -260,6 +284,19 @@
                             <span>Total : <b id="mm-ram-total">—</b></span>
                             <span>Libre : <b id="mm-ram-free">—</b></span>
                         </div>
+                    </div>
+                </div>
+
+                <div class="mm-chart-section">
+                    <div class="mm-chart-header">
+                        <span class="panel-title">HISTORIQUE TEMPS RÉEL</span>
+                        <span class="mm-chart-legend">
+                            <span class="legend-dot cpu-dot"></span>CPU
+                            <span class="legend-dot ram-dot"></span>RAM
+                        </span>
+                    </div>
+                    <div class="mm-chart-wrap">
+                        <canvas id="mm-chart"></canvas>
                     </div>
                 </div>
 

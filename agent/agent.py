@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 L2-IG2 Monitor - Agent Python
-Envoie les métriques système au serveur toutes les 5 secondes.
+Envoie les métriques système au serveur à la fréquence définie par le serveur (par défaut 1 seconde).
 
 Usage:
     python agent.py
@@ -255,7 +255,11 @@ def post_metrics(server_url):
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=10) as resp:
-        return resp.status
+        raw = resp.read().decode("utf-8", errors="replace")
+        try:
+            return json.loads(raw)
+        except Exception:
+            return {}
 
 
 def send_disconnect(server_url):
@@ -705,13 +709,19 @@ class AgentApp:
         self.stop_event.clear()
 
         def loop():
+            global INTERVAL_SEC
             while not self.stop_event.is_set():
                 try:
-                    status = post_metrics(url)
+                    result = post_metrics(url)
                     self.last_ok = time.time()
                     self.last_error = None
                     self.send_count += 1
-                    print(f"[{time.strftime('%H:%M:%S')}] OK → {url} ({status})")
+                    if isinstance(result, dict) and 'interval' in result:
+                        new_iv = int(result['interval'])
+                        if new_iv >= 1 and new_iv != INTERVAL_SEC:
+                            INTERVAL_SEC = new_iv
+                            print(f"[{time.strftime('%H:%M:%S')}] Intervalle → {INTERVAL_SEC}s")
+                    print(f"[{time.strftime('%H:%M:%S')}] OK → {url}")
                 except Exception as exc:
                     self.last_error = str(exc)
                     print(f"[{time.strftime('%H:%M:%S')}] Erreur: {exc}")
@@ -785,10 +795,16 @@ def run_console(cli_server=None):
     stop_event = threading.Event()
 
     def loop():
+        global INTERVAL_SEC
         while not stop_event.is_set():
             try:
-                status = post_metrics(server_url)
-                print(f"[{time.strftime('%H:%M:%S')}] OK → {server_url} ({status})")
+                result = post_metrics(server_url)
+                if isinstance(result, dict) and 'interval' in result:
+                    new_iv = int(result['interval'])
+                    if new_iv >= 1 and new_iv != INTERVAL_SEC:
+                        INTERVAL_SEC = new_iv
+                        print(f"[{time.strftime('%H:%M:%S')}] Intervalle → {INTERVAL_SEC}s")
+                print(f"[{time.strftime('%H:%M:%S')}] OK → {server_url}")
             except Exception as exc:
                 print(f"[{time.strftime('%H:%M:%S')}] Erreur: {exc}")
             stop_event.wait(INTERVAL_SEC)

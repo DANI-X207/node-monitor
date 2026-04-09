@@ -32,6 +32,20 @@ function lastSeenDisplay(lastSeenStr) {
 module.exports = (io) => {
   const router = express.Router();
 
+  let globalInterval = 1;
+
+  router.get('/settings/interval', (req, res) => {
+    res.json({ interval: globalInterval });
+  });
+
+  router.post('/settings/interval', (req, res) => {
+    const val = parseInt(req.body.interval);
+    if (!val || val < 1 || val > 3600) return res.status(400).json({ error: 'Valeur invalide' });
+    globalInterval = val;
+    io.emit('interval_changed', { interval: globalInterval });
+    res.json({ ok: true, interval: globalInterval });
+  });
+
   router.get('/identify', async (req, res) => {
     try {
       const clientIp = getClientIp(req);
@@ -127,7 +141,7 @@ module.exports = (io) => {
 
       io.emit('machine_update', { machine_id: machineId });
 
-      res.json({ ok: true });
+      res.json({ ok: true, interval: globalInterval });
     } catch (err) {
       console.error('agent-report error:', err);
       res.status(500).json({ error: 'Server error' });

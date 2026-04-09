@@ -489,17 +489,17 @@ function renderMyMachine() {
     const statusBadge = document.getElementById('myMachineStatus');
 
     if (!machine) {
-        if (noAgent) noAgent.style.display = '';
         machineData.style.display = 'none';
         statusBadge.textContent = 'Hors ligne';
         statusBadge.className = 'badge badge-offline';
         if (myMachineId && allMachines.length > 0) {
+            // ID sauvegardé mais machine absente de la DB (DB réinitialisée) → reset
             localStorage.removeItem('myMachineId');
             myMachineId = null;
-            _showNoAgentMain();
-        } else if (!myMachineId) {
+            if (noAgent) noAgent.style.display = '';
             _showNoAgentMain();
         }
+        // Sinon : détection encore en cours, on ne touche pas au spinner
         return;
     }
 

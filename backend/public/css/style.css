@@ -633,6 +633,106 @@ body {
     text-decoration: none;
 }
 
+/* NETWORK INTERFACES PANEL */
+.network-interfaces-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+}
+
+.interfaces-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.interfaces-header .panel-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.interfaces-count {
+    font-size: 11px;
+    color: var(--text2);
+    background: var(--bg3);
+    border-radius: 10px;
+    padding: 2px 8px;
+}
+
+.interfaces-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.interface-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 12px;
+    min-width: 200px;
+}
+
+.iface-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    flex-shrink: 0;
+}
+
+.iface-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text2);
+    letter-spacing: 0.04em;
+    min-width: 70px;
+}
+
+.iface-ip {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.no-interfaces {
+    font-size: 12px;
+    color: var(--text2);
+}
+
+/* ID MACHINE + VERIFIED BADGE */
+.me-id-item {
+    min-width: 200px;
+}
+
+.verified-badge {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--green);
+    background: rgba(52, 211, 153, 0.1);
+    border: 1px solid rgba(52, 211, 153, 0.3);
+    border-radius: 4px;
+    padding: 1px 5px;
+    vertical-align: middle;
+}
+
+.me-machine-id {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 13px;
+    color: var(--blue);
+}
+
 /* MACHINE DETAIL MODAL */
 .machine-modal-box {
     max-width: 680px;

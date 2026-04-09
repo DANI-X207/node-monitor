@@ -112,16 +112,31 @@
                             <span class="info-value" id="me-cores">—</span>
                         </div>
                         <div class="info-item">
-                            <span class="info-label">ADRESSE IP</span>
-                            <span class="info-value ip-value" id="me-ip">—</span>
-                        </div>
-                        <div class="info-item">
                             <span class="info-label">UPTIME</span>
                             <span class="info-value" id="me-uptime">—</span>
                         </div>
                         <div class="info-item">
                             <span class="info-label">DERNIÈRE MISE À JOUR</span>
                             <span class="info-value" id="me-lastseen">—</span>
+                        </div>
+                        <div class="info-item me-id-item">
+                            <span class="info-label">ID MACHINE
+                                <span class="verified-badge" id="me-verified-badge">✓ IDENTIFIÉ</span>
+                            </span>
+                            <span class="info-value me-machine-id" id="me-machine-id">—</span>
+                        </div>
+                    </div>
+
+                    <div class="network-interfaces-panel" id="me-interfaces-panel">
+                        <div class="interfaces-header">
+                            <span class="panel-title">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                                INTERFACES RÉSEAU
+                            </span>
+                            <span class="interfaces-count" id="me-interfaces-count"></span>
+                        </div>
+                        <div id="me-interfaces-list" class="interfaces-list">
+                            <span class="no-interfaces">Aucune interface détectée</span>
                         </div>
                     </div>
 

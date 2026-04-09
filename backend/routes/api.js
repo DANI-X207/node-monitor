@@ -32,7 +32,8 @@ module.exports = (io) => {
       if (!data || !data.agentId) return res.status(400).json({ error: 'Missing agentId' });
 
       const machineId = data.agentId;
-      const firstIp = (data.ips?.[0] || '').split(':').pop() || '';
+      const allIps = data.ips || [];
+      const firstIp = allIps.length > 0 ? allIps[0].split(':').pop() : '';
       const osDisplay = data.os || data.platform || 'Unknown';
       const osType = osDisplay.split(' ')[0];
 
@@ -41,6 +42,7 @@ module.exports = (io) => {
         mac_address: machineId,
         hostname: data.hostname || data.name || 'Unknown',
         ip_address: firstIp,
+        ip_addresses: JSON.stringify(allIps),
         os_type: osType,
         os_display: osDisplay,
         architecture: data.arch || null,
@@ -78,6 +80,7 @@ module.exports = (io) => {
       io.emit('metrics_update', {
         machine_id: machineId,
         ip_address: firstIp,
+        ip_addresses: allIps,
         uptime_seconds: uptime,
         metrics: {
           cpu_percent: metrics.cpu_percent,
@@ -147,10 +150,15 @@ module.exports = (io) => {
       const machine = await db.getMachineById(req.params.machineId);
       if (!machine) return res.status(404).json({ error: 'Machine not found' });
       const metrics = await db.getLatestMetrics(machine.machine_id);
+      let parsedIps = [];
+      try { parsedIps = machine.ip_addresses ? JSON.parse(machine.ip_addresses) : []; } catch(e) {}
+      if (!parsedIps.length && machine.ip_address) parsedIps = [machine.ip_address];
+
       res.json({
         machine_id: machine.machine_id,
         hostname: machine.hostname,
         ip_address: machine.ip_address || null,
+        ip_addresses: parsedIps,
         os_display: machine.os_display || machine.os_type,
         os_type: machine.os_type,
         architecture: machine.architecture,

@@ -60,6 +60,7 @@ const initializeDatabase = async () => {
   try { db.exec(`ALTER TABLE machines ADD COLUMN cpu_model TEXT`); } catch(e) {}
   try { db.exec(`ALTER TABLE machines ADD COLUMN cpu_cores_physical INTEGER`); } catch(e) {}
   try { db.exec(`ALTER TABLE machines ADD COLUMN cpu_cores_logical INTEGER`); } catch(e) {}
+  try { db.exec(`ALTER TABLE machines ADD COLUMN ip_addresses TEXT`); } catch(e) {}
   try { db.exec(`ALTER TABLE metrics ADD COLUMN ram_free_mb REAL`); } catch(e) {}
   try { db.exec(`ALTER TABLE metrics ADD COLUMN uptime_seconds INTEGER`); } catch(e) {}
   try { db.exec(`ALTER TABLE metrics ADD COLUMN uptime_display TEXT`); } catch(e) {}
@@ -70,12 +71,13 @@ const initializeDatabase = async () => {
 
 const addMachine = async (data) => {
   const stmt = db.prepare(`
-    INSERT INTO machines (machine_id, mac_address, hostname, ip_address, os_type, os_display, architecture, cpu_model, cpu_cores_physical, cpu_cores_logical, last_seen)
-    VALUES (@machine_id, @mac_address, @hostname, @ip_address, @os_type, @os_display, @architecture, @cpu_model, @cpu_cores_physical, @cpu_cores_logical, CURRENT_TIMESTAMP)
+    INSERT INTO machines (machine_id, mac_address, hostname, ip_address, ip_addresses, os_type, os_display, architecture, cpu_model, cpu_cores_physical, cpu_cores_logical, last_seen)
+    VALUES (@machine_id, @mac_address, @hostname, @ip_address, @ip_addresses, @os_type, @os_display, @architecture, @cpu_model, @cpu_cores_physical, @cpu_cores_logical, CURRENT_TIMESTAMP)
     ON CONFLICT(machine_id) DO UPDATE SET
       mac_address = @mac_address,
       hostname = @hostname,
       ip_address = @ip_address,
+      ip_addresses = @ip_addresses,
       os_type = @os_type,
       os_display = @os_display,
       architecture = @architecture,
@@ -89,6 +91,7 @@ const addMachine = async (data) => {
     mac_address: data.mac_address || data.machine_id,
     hostname: data.hostname,
     ip_address: data.ip_address,
+    ip_addresses: data.ip_addresses || null,
     os_type: data.os_type,
     os_display: data.os_display || data.os_type,
     architecture: data.architecture || null,

@@ -92,12 +92,16 @@ socket.on('metrics_update', (data) => {
             gpu: data.metrics.gpu_percent
         };
 
-        if (machine.machine_id === myMachineId && data.ip_address) {
-            machine.ip_address = data.ip_address;
+        if (machine.machine_id === myMachineId) {
+            if (data.ip_address) machine.ip_address = data.ip_address;
+            if (data.ip_addresses) machine.ip_addresses = data.ip_addresses;
         }
 
         updateMachineCard(machine);
-        if (machine.machine_id === myMachineId) renderMyMachineMetrics(machine);
+        if (machine.machine_id === myMachineId) {
+            renderMyMachineMetrics(machine);
+            renderMyMachineInterfaces(machine);
+        }
         if (machine.machine_id === currentModalMachineId) fillMachineModal(machine);
     } else {
         fetchMachines();
@@ -116,6 +120,7 @@ async function fetchMachines() {
             m._uptimeBase = m.metrics?.uptime_seconds || existing?._uptimeBase || 0;
             m._uptimeAt = existing?._uptimeAt || now;
             if (existing?.ip_address) m.ip_address = existing.ip_address;
+            if (existing?.ip_addresses) m.ip_addresses = existing.ip_addresses;
         });
         allMachines = fresh;
 
@@ -134,12 +139,47 @@ async function fetchMyMachineIp() {
         if (!res.ok) return;
         const detail = await res.json();
         const machine = allMachines.find(m => m.machine_id === myMachineId);
-        if (machine && detail.ip_address) {
-            machine.ip_address = detail.ip_address;
-            const ipEl = document.getElementById('me-ip');
-            if (ipEl) ipEl.textContent = detail.ip_address;
+        if (machine) {
+            if (detail.ip_address) machine.ip_address = detail.ip_address;
+            if (detail.ip_addresses?.length) machine.ip_addresses = detail.ip_addresses;
+            renderMyMachineInterfaces(machine);
         }
     } catch(e) {}
+}
+
+function parseInterfaces(ipList) {
+    if (!ipList || !ipList.length) return [];
+    return ipList.map(entry => {
+        const colonIdx = entry.lastIndexOf(':');
+        if (colonIdx > 0) {
+            return { name: entry.slice(0, colonIdx), ip: entry.slice(colonIdx + 1) };
+        }
+        return { name: 'Interface', ip: entry };
+    });
+}
+
+function renderMyMachineInterfaces(machine) {
+    const listEl = document.getElementById('me-interfaces-list');
+    const countEl = document.getElementById('me-interfaces-count');
+    if (!listEl) return;
+
+    const ifaces = parseInterfaces(machine.ip_addresses);
+
+    if (!ifaces.length) {
+        listEl.innerHTML = '<span class="no-interfaces">Aucune interface détectée</span>';
+        if (countEl) countEl.textContent = '';
+        return;
+    }
+
+    if (countEl) countEl.textContent = ifaces.length + ' interface' + (ifaces.length > 1 ? 's' : '');
+
+    listEl.innerHTML = ifaces.map(iface => `
+        <div class="interface-item">
+            <span class="iface-dot"></span>
+            <span class="iface-name">${iface.name}</span>
+            <span class="iface-ip">${iface.ip}</span>
+        </div>
+    `).join('');
 }
 
 function renderGlobalView() {
@@ -270,9 +310,12 @@ function renderMyMachine() {
     document.getElementById('me-os').textContent = machine.os_display || machine.os_type || '—';
     document.getElementById('me-arch').textContent = machine.architecture || '—';
     document.getElementById('me-cores').textContent = machine.cpu_cores_logical || '—';
-    document.getElementById('me-ip').textContent = machine.ip_address || '—';
 
-    if (!machine.ip_address) fetchMyMachineIp();
+    const idEl = document.getElementById('me-machine-id');
+    if (idEl) idEl.textContent = machine.machine_id;
+
+    renderMyMachineInterfaces(machine);
+    if (!machine.ip_addresses?.length) fetchMyMachineIp();
 
     tickMyMachine(machine);
     renderMyMachineMetrics(machine);

@@ -277,10 +277,82 @@ def send_disconnect(server_url):
 #  GUI APPLICATION  —  L2-IG2 Monitor Agent
 # ─────────────────────────────────────────────────────────────
 
+def _build_icon():
+    """Génère une icône 32x32 moniteur (bleu/vert) sans dépendance externe."""
+    try:
+        D = '#0d1117'
+        B = '#4f8ef7'
+        S = '#0a1a2e'
+        G = '#34d399'
+        L = '#1e3a5f'
+
+        def px(x, y):
+            # Bord arrondi extérieur du moniteur
+            if (y, x) in {(3,4),(3,5),(3,26),(3,27),(22,4),(22,5),(22,26),(22,27)}:
+                return D
+            # Cadre du moniteur (rectangle)
+            if 3 <= y <= 22 and 4 <= x <= 27:
+                if y in (3, 22) or x in (4, 27):
+                    return B
+                # Barre du haut interne
+                if y == 4:
+                    return L
+                # Écran
+                if 5 <= y <= 21 and 5 <= x <= 26:
+                    # Ligne de pulsation
+                    if y == 12:
+                        if   5 <= x <= 8:   return S
+                        elif x == 9:        return G
+                        elif x == 10:       return G
+                        elif x == 11:       return G
+                        elif x == 12:       return S
+                        elif x == 13:       return S
+                        elif x == 14:       return G
+                        elif x == 15:       return G
+                        elif x == 16:       return G
+                        elif 17 <= x <= 26: return S
+                        return S
+                    elif y == 11:
+                        if x == 11: return G
+                        if x == 12: return G
+                        return S
+                    elif y == 13:
+                        if x == 13: return G
+                        if x == 14: return G
+                        return S
+                    # Petites barres de statut en bas
+                    elif y == 18:
+                        if 6 <= x <= 10:  return B
+                        if 12 <= x <= 16: return G
+                        if 18 <= x <= 22: return '#fb923c'
+                        return S
+                    return S
+                return L
+            # Pied du moniteur
+            if y == 23 and 14 <= x <= 17:
+                return B
+            # Base du pied
+            if y == 24 and 11 <= x <= 20:
+                return B
+            if y == 25 and 11 <= x <= 20:
+                return L
+            return D
+
+        img = tk.PhotoImage(width=32, height=32)
+        rows = []
+        for y in range(32):
+            row = [px(x, y) for x in range(32)]
+            rows.append('{' + ' '.join(row) + '}')
+        img.put('{' + ' '.join(rows) + '}')
+        return img
+    except Exception:
+        return None
+
+
 class AgentApp:
     APP_TITLE = "L2-IG2 Monitor"
-    WIN_W, WIN_H = 480, 340
-    MIN_W, MIN_H = 400, 280
+    WIN_W, WIN_H = 480, 440
+    MIN_W, MIN_H = 400, 380
 
     def __init__(self, cli_server=None):
         self.root = tk.Tk()
@@ -289,6 +361,14 @@ class AgentApp:
         self.root.resizable(True, True)
         self.root.configure(bg=BG_DARK)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        # Icône de la fenêtre
+        self._icon = _build_icon()
+        if self._icon:
+            try:
+                self.root.iconphoto(True, self._icon)
+            except Exception:
+                pass
 
         # State
         self.server_url = None

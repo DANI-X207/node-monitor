@@ -689,19 +689,28 @@ body {
 
 .interfaces-list {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.interface-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.iface-block {
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 7px 12px;
-    min-width: 200px;
+    overflow: hidden;
+}
+
+.iface-block.iface-loopback {
+    opacity: 0.6;
+}
+
+.iface-block-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--border);
 }
 
 .iface-dot {
@@ -712,19 +721,57 @@ body {
     flex-shrink: 0;
 }
 
-.iface-name {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text2);
-    letter-spacing: 0.04em;
-    min-width: 70px;
+.iface-block-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.03em;
 }
 
-.iface-ip {
-    font-size: 13px;
+.iface-rows {
+    padding: 4px 0;
+}
+
+.iface-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 12px;
+}
+
+.iface-row:not(:last-child) {
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.iface-row-label {
+    font-size: 11px;
+    color: var(--text2);
+    min-width: 160px;
+    flex-shrink: 0;
+}
+
+.iface-row-label::after {
+    content: ' . . .';
+    opacity: 0.3;
+}
+
+.iface-row-value {
+    font-size: 12px;
     font-weight: 600;
     color: var(--text);
     font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.iface-row-value.ipv6 {
+    font-size: 11px;
+    color: var(--text2);
+    word-break: break-all;
+}
+
+.iface-row-value.mac {
+    font-size: 11px;
+    color: var(--text2);
+    text-transform: uppercase;
 }
 
 .no-interfaces {

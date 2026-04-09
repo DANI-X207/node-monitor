@@ -104,6 +104,7 @@ module.exports = (io) => {
         machine_id: machineId,
         ip_address: firstIp,
         ip_addresses: allIps,
+        interfaces: data.interfaces || [],
         uptime_seconds: uptime,
         metrics: {
           cpu_percent: metrics.cpu_percent,

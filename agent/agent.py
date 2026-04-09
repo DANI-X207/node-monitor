@@ -220,10 +220,26 @@ def show_status_window(success, server_url, error_msg=""):
 
 def get_metrics(server_url):
     ips = []
-    for iface, addrs in (psutil.net_if_addrs() if HAS_PSUTIL else {}).items():
-        for addr in addrs:
-            if addr.family == socket.AF_INET and not addr.address.startswith("127."):
-                ips.append(f"{iface}:{addr.address}")
+    interfaces = []
+
+    if HAS_PSUTIL:
+        for iface, addrs in psutil.net_if_addrs().items():
+            iface_entry = {"name": iface, "ipv4": None, "netmask": None, "ipv6": [], "mac": None}
+            for addr in addrs:
+                if addr.family == socket.AF_INET:
+                    iface_entry["ipv4"] = addr.address
+                    iface_entry["netmask"] = addr.netmask
+                    if not addr.address.startswith("127."):
+                        ips.append(f"{iface}:{addr.address}")
+                elif addr.family == socket.AF_INET6:
+                    ip6 = addr.address.split("%")[0]
+                    iface_entry["ipv6"].append(ip6)
+                elif hasattr(socket, "AF_PACKET") and addr.family == socket.AF_PACKET:
+                    iface_entry["mac"] = addr.address
+                elif hasattr(psutil, "_pslinux") is False and addr.family == 18:
+                    iface_entry["mac"] = addr.address
+            if iface_entry["ipv4"] or iface_entry["ipv6"]:
+                interfaces.append(iface_entry)
 
     if not ips:
         try:
@@ -276,6 +292,7 @@ def get_metrics(server_url):
         "os": platform.system() + " " + platform.release(),
         "arch": platform.machine(),
         "ips": ips,
+        "interfaces": interfaces,
         "uptime": uptime,
         "cpu": {
             "model": platform.processor() or platform.uname().processor or "Unknown",

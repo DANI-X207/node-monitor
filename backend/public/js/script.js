@@ -92,10 +92,9 @@ socket.on('metrics_update', (data) => {
             gpu: data.metrics.gpu_percent
         };
 
-        if (machine.machine_id === myMachineId) {
-            if (data.ip_address) machine.ip_address = data.ip_address;
-            if (data.ip_addresses) machine.ip_addresses = data.ip_addresses;
-        }
+        if (data.ip_address) machine.ip_address = data.ip_address;
+        if (data.ip_addresses) machine.ip_addresses = data.ip_addresses;
+        if (data.interfaces && data.interfaces.length) machine.interfaces = data.interfaces;
 
         updateMachineCard(machine);
         if (machine.machine_id === myMachineId) {
@@ -147,23 +146,12 @@ async function fetchMyMachineIp() {
     } catch(e) {}
 }
 
-function parseInterfaces(ipList) {
-    if (!ipList || !ipList.length) return [];
-    return ipList.map(entry => {
-        const colonIdx = entry.lastIndexOf(':');
-        if (colonIdx > 0) {
-            return { name: entry.slice(0, colonIdx), ip: entry.slice(colonIdx + 1) };
-        }
-        return { name: 'Interface', ip: entry };
-    });
-}
-
 function renderMyMachineInterfaces(machine) {
     const listEl = document.getElementById('me-interfaces-list');
     const countEl = document.getElementById('me-interfaces-count');
     if (!listEl) return;
 
-    const ifaces = parseInterfaces(machine.ip_addresses);
+    const ifaces = machine.interfaces || [];
 
     if (!ifaces.length) {
         listEl.innerHTML = '<span class="no-interfaces">Aucune interface détectée</span>';
@@ -173,13 +161,48 @@ function renderMyMachineInterfaces(machine) {
 
     if (countEl) countEl.textContent = ifaces.length + ' interface' + (ifaces.length > 1 ? 's' : '');
 
-    listEl.innerHTML = ifaces.map(iface => `
-        <div class="interface-item">
-            <span class="iface-dot"></span>
-            <span class="iface-name">${iface.name}</span>
-            <span class="iface-ip">${iface.ip}</span>
-        </div>
-    `).join('');
+    listEl.innerHTML = ifaces.map(iface => {
+        const isLoopback = iface.ipv4 === '127.0.0.1' || iface.name === 'lo';
+        const rows = [];
+        if (iface.ipv4) {
+            rows.push(`
+                <div class="iface-row">
+                    <span class="iface-row-label">Adresse IPv4</span>
+                    <span class="iface-row-value">${iface.ipv4}</span>
+                </div>`);
+        }
+        if (iface.netmask) {
+            rows.push(`
+                <div class="iface-row">
+                    <span class="iface-row-label">Masque sous-réseau</span>
+                    <span class="iface-row-value">${iface.netmask}</span>
+                </div>`);
+        }
+        if (iface.ipv6 && iface.ipv6.length) {
+            iface.ipv6.forEach(ip6 => {
+                rows.push(`
+                <div class="iface-row">
+                    <span class="iface-row-label">Adresse IPv6</span>
+                    <span class="iface-row-value ipv6">${ip6}</span>
+                </div>`);
+            });
+        }
+        if (iface.mac) {
+            rows.push(`
+                <div class="iface-row">
+                    <span class="iface-row-label">Adresse MAC</span>
+                    <span class="iface-row-value mac">${iface.mac}</span>
+                </div>`);
+        }
+        return `
+            <div class="iface-block${isLoopback ? ' iface-loopback' : ''}">
+                <div class="iface-block-header">
+                    <span class="iface-dot"></span>
+                    <span class="iface-block-name">${iface.name}</span>
+                </div>
+                <div class="iface-rows">${rows.join('')}</div>
+            </div>`;
+    }).join('');
 }
 
 function renderGlobalView() {

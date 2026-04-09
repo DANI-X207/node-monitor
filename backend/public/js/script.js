@@ -671,14 +671,13 @@ function closeMachineModal() {
 function _applyIdentifiedMachine(machineId) {
     myMachineId = machineId;
     localStorage.setItem(STORAGE_KEY, machineId);
-    const detecting = document.getElementById('noAgentDetecting');
-    const main = document.getElementById('noAgentMain');
-    if (detecting) detecting.style.display = 'none';
-    if (main) main.style.display = 'none';
     fetchMyMachineIp();
     renderGlobalView();
     const currentView = document.querySelector('.view.active')?.id;
     if (currentView === 'view-me') renderMyMachine();
+    // Note: ne cache PAS le spinner ici — c'est renderMyMachine qui gère
+    // l'affichage quand la machine est trouvée dans allMachines,
+    // ou _showNoAgentMain si aucun agent n'est détecté.
 }
 
 function _showNoAgentMain() {

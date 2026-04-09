@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Node Monitor - Agent Python
+L2-IG2 Monitor - Agent Python
 Envoie les métriques système au serveur toutes les 5 secondes.
 
 Usage:
@@ -49,8 +49,9 @@ DEFAULT_SERVER = "##SERVER_URL##"
 AGENT_NAME = socket.gethostname()
 INTERVAL_SEC = 5
 
-BG_DARK   = "#0f1117"
-BG_CARD   = "#1a1d27"
+# ── Dark theme colours ───────────────────────────────────────
+BG_DARK   = "#0d1117"
+BG_CARD   = "#161b22"
 BG_INPUT  = "#0d1117"
 FG_TEXT   = "#e2e8f0"
 FG_SUB    = "#6b7280"
@@ -62,9 +63,7 @@ BORDER    = "#2d3148"
 
 
 def get_machine_id():
-    """ID stable basé sur hostname + MAC le plus bas parmi toutes les interfaces.
-    Utilise psutil si disponible pour lister tous les MACs, sinon uuid.getnode().
-    Le résultat est identique même si l'interface réseau active change."""
+    """ID stable basé sur hostname + MAC le plus bas parmi toutes les interfaces."""
     try:
         macs = []
         if HAS_PSUTIL:
@@ -223,26 +222,39 @@ def post_metrics(server_url):
         return resp.status
 
 
+def send_disconnect(server_url):
+    """Notifie le serveur que cet agent passe hors ligne."""
+    try:
+        body = json.dumps({"agentId": MACHINE_ID}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{server_url}/api/agent-disconnect",
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        urllib.request.urlopen(req, timeout=5)
+    except Exception:
+        pass
+
+
 # ─────────────────────────────────────────────────────────────
-#  GUI APPLICATION
+#  GUI APPLICATION  —  L2-IG2 Monitor Agent
 # ─────────────────────────────────────────────────────────────
 
 class AgentApp:
+    APP_TITLE = "L2-IG2 Monitor"
+    WIN_W, WIN_H = 480, 340
+    MIN_W, MIN_H = 400, 280
+
     def __init__(self, cli_server=None):
         self.root = tk.Tk()
-        self.root.title("Node Monitor")
-        self.root.geometry("420x260")
-        self.root.resizable(False, False)
+        self.root.title(self.APP_TITLE)
+        self.root.minsize(self.MIN_W, self.MIN_H)
+        self.root.resizable(True, True)
         self.root.configure(bg=BG_DARK)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        try:
-            self.root.eval("tk::PlaceWindow . center")
-            self.root.attributes("-topmost", True)
-            self.root.after(500, lambda: self.root.attributes("-topmost", False))
-        except Exception:
-            pass
-
+        # State
         self.server_url = None
         self.stop_event = threading.Event()
         self.worker = None
@@ -250,9 +262,31 @@ class AgentApp:
         self.last_ok = None
         self.last_error = None
         self._tick_job = None
+        self._resize_cb = None
+        self._run_status_lbl = None
 
-        self.frame = tk.Frame(self.root, bg=BG_CARD)
-        self.frame.place(relx=0, rely=0, relwidth=1, relheight=1)
+        # ── Root grid: header (0), separator (1), body (2) ──
+        self.root.rowconfigure(2, weight=1)
+        self.root.columnconfigure(0, weight=1)
+
+        self._build_header()
+        tk.Frame(self.root, bg=BORDER, height=1).grid(row=1, column=0, sticky="ew")
+
+        self._body = tk.Frame(self.root, bg=BG_CARD)
+        self._body.grid(row=2, column=0, sticky="nsew")
+
+        # Center window on screen
+        try:
+            self.root.update_idletasks()
+            sw = self.root.winfo_screenwidth()
+            sh = self.root.winfo_screenheight()
+            x = (sw - self.WIN_W) // 2
+            y = (sh - self.WIN_H) // 2
+            self.root.geometry(f"{self.WIN_W}x{self.WIN_H}+{x}+{y}")
+            self.root.attributes("-topmost", True)
+            self.root.after(500, lambda: self.root.attributes("-topmost", False))
+        except Exception:
+            self.root.geometry(f"{self.WIN_W}x{self.WIN_H}")
 
         if cli_server:
             self._do_connect(cli_server)
@@ -261,190 +295,265 @@ class AgentApp:
 
         self.root.mainloop()
 
-    # ── window close → minimize to taskbar ──────────────────
-    def _on_close(self):
-        self.root.iconify()
+    # ── Header ───────────────────────────────────────────────
 
-    # ── helpers ─────────────────────────────────────────────
+    def _build_header(self):
+        hdr = tk.Frame(self.root, bg=BG_DARK)
+        hdr.grid(row=0, column=0, sticky="ew")
+        hdr.columnconfigure(1, weight=1)
+
+        # Dot + name
+        tk.Label(hdr, text="●", font=("Segoe UI", 10, "bold"),
+                 fg=FG_BLUE, bg=BG_DARK).grid(row=0, column=0, padx=(16, 6), pady=11)
+        tk.Label(hdr, text=self.APP_TITLE, font=("Segoe UI", 12, "bold"),
+                 fg=FG_TEXT, bg=BG_DARK).grid(row=0, column=1, sticky="w", pady=11)
+
+        # Status badge (right)
+        self._hdr_status = tk.Label(hdr, text="Non connecté",
+                                     font=("Segoe UI", 8),
+                                     fg=FG_SUB, bg=BG_DARK)
+        self._hdr_status.grid(row=0, column=2, padx=(0, 16), pady=11)
+
+    def _set_status(self, text, color=FG_SUB):
+        self._hdr_status.config(text=text, fg=color)
+
+    # ── Body helpers ─────────────────────────────────────────
+
     def _clear(self):
-        for w in self.frame.winfo_children():
+        for w in self._body.winfo_children():
             w.destroy()
         if self._tick_job:
             self.root.after_cancel(self._tick_job)
             self._tick_job = None
+        if self._resize_cb is not None:
+            try:
+                self._body.unbind("<Configure>", self._resize_cb)
+            except Exception:
+                pass
+            self._resize_cb = None
+        self._run_status_lbl = None
 
-    def _header(self, y=0.10):
-        tk.Label(self.frame, text="Node Monitor",
-                 font=("Segoe UI", 13, "bold"), fg=FG_TEXT,
-                 bg=BG_CARD).place(relx=0.5, rely=y, anchor="center")
+    def _centered(self):
+        """Return a frame centered in self._body; stays centered on resize."""
+        f = tk.Frame(self._body, bg=BG_CARD)
+        f.place(relx=0.5, rely=0.5, anchor="center")
+        self._resize_cb = self._body.bind(
+            "<Configure>",
+            lambda _e: f.place_configure(relx=0.5, rely=0.5, anchor="center")
+        )
+        return f
 
-    def _btn(self, text, cmd, color=FG_BLUE, y=0.0, width=22):
-        b = tk.Button(self.frame, text=text, command=cmd,
+    def _sep(self, parent):
+        tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", pady=10)
+
+    def _info_row(self, parent, label, value):
+        row = tk.Frame(parent, bg=BG_CARD)
+        row.pack(fill="x", pady=2)
+        tk.Label(row, text=label, font=("Segoe UI", 8),
+                 fg=FG_SUB, bg=BG_CARD, width=9, anchor="w").pack(side="left")
+        tk.Label(row, text=str(value) if value else "—",
+                 font=("Consolas", 8), fg=FG_TEXT, bg=BG_CARD,
+                 wraplength=330, justify="left").pack(side="left", fill="x", expand=True)
+
+    def _btn(self, parent, text, cmd, color, expand=True):
+        b = tk.Button(parent, text=text, command=cmd,
                       font=("Segoe UI", 9, "bold"),
                       bg=color, fg="#ffffff",
-                      relief="flat", padx=14, pady=6,
+                      relief="flat", padx=14, pady=7,
                       cursor="hand2",
                       activebackground=color,
-                      activeforeground="#ffffff",
-                      width=width)
-        b.place(relx=0.5, rely=y, anchor="center")
+                      activeforeground="#ffffff")
+        if expand:
+            b.pack(fill="x", pady=(0, 6))
         return b
 
-    def _label(self, text, size=9, color=FG_SUB, y=0.0, bold=False):
-        style = "bold" if bold else "normal"
-        tk.Label(self.frame, text=text,
-                 font=("Segoe UI", size, style),
-                 fg=color, bg=BG_CARD,
-                 wraplength=360).place(relx=0.5, rely=y, anchor="center")
+    def _btn_row(self, parent, buttons):
+        """Row of equally-sized buttons: buttons = [(text, cmd, color), ...]"""
+        row = tk.Frame(parent, bg=BG_CARD)
+        row.pack(fill="x", pady=(0, 6))
+        for i, (text, cmd, color) in enumerate(buttons):
+            px = (0, 4) if i < len(buttons) - 1 else (4, 0)
+            if i == 0:
+                px = (0, 3)
+            b = tk.Button(row, text=text, command=cmd,
+                          font=("Segoe UI", 9, "bold"),
+                          bg=color, fg="#ffffff",
+                          relief="flat", padx=10, pady=7,
+                          cursor="hand2",
+                          activebackground=color,
+                          activeforeground="#ffffff")
+            b.pack(side="left", expand=True, fill="x", padx=(0 if i == 0 else 3, 0))
 
-    def _separator(self, y=0.0):
-        sep = tk.Frame(self.frame, bg=BORDER, height=1)
-        sep.place(relx=0.05, rely=y, relwidth=0.9)
+    def _entry_field(self, parent, var, placeholder=""):
+        e = tk.Entry(parent, textvariable=var,
+                     font=("Consolas", 9),
+                     bg=BG_INPUT, fg=FG_TEXT,
+                     insertbackground=FG_TEXT,
+                     relief="flat", bd=7)
+        e.pack(fill="x", ipady=3, pady=(0, 10))
+        return e
 
-    # ── SCREEN 1: connection setup ───────────────────────────
+    def _status_indicator(self, parent, icon, title, subtitle, icon_color):
+        row = tk.Frame(parent, bg=BG_CARD)
+        row.pack(fill="x", pady=(0, 10))
+        tk.Label(row, text=icon, font=("Segoe UI", 22, "bold"),
+                 fg=icon_color, bg=BG_CARD).pack(side="left", padx=(0, 12))
+        right = tk.Frame(row, bg=BG_CARD)
+        right.pack(side="left", fill="x", expand=True)
+        tk.Label(right, text=title, font=("Segoe UI", 10, "bold"),
+                 fg=icon_color, bg=BG_CARD, anchor="w").pack(fill="x")
+        tk.Label(right, text=subtitle, font=("Segoe UI", 8),
+                 fg=FG_SUB, bg=BG_CARD, anchor="w").pack(fill="x")
+
+    # ── SCREEN: Connect ──────────────────────────────────────
+
     def _show_connect_screen(self):
         self._clear()
-        cfg = load_config()
-        last = cfg.get("server_url", "")
-        injected = DEFAULT_SERVER if "##" not in DEFAULT_SERVER else ""
-        saved = last or injected
+        self._set_status("Non connecté")
 
-        self._header(y=0.10)
+        cfg = load_config()
+        injected = DEFAULT_SERVER if "##" not in DEFAULT_SERVER else ""
+        saved = cfg.get("server_url", "") or injected
+
+        f = self._centered()
 
         if saved:
-            # Option A: reconnect to last server
-            self._label("Reconnecter au dernier serveur :", size=9, color=FG_SUB, y=0.28)
-            self._label(saved, size=9, color=FG_BLUE, y=0.38, bold=True)
-            reconnect_btn = self._btn("Se reconnecter", lambda: self._do_connect(saved),
-                                      color=FG_GREEN, y=0.52, width=20)
+            tk.Label(f, text="Dernier serveur connu :",
+                     font=("Segoe UI", 8), fg=FG_SUB, bg=BG_CARD).pack(anchor="w")
 
-            self._separator(y=0.635)
-            self._label("ou entrez une autre adresse :", size=8, color=FG_SUB, y=0.70)
+            saved_frame = tk.Frame(f, bg=BG_INPUT)
+            saved_frame.pack(fill="x", pady=(4, 12), ipady=2)
+            tk.Label(saved_frame, text=saved,
+                     font=("Consolas", 9, "bold"), fg=FG_BLUE, bg=BG_INPUT,
+                     wraplength=380, justify="left").pack(padx=10, pady=6, anchor="w")
 
-            entry_var = tk.StringVar(value="")
-            entry = tk.Entry(self.frame, textvariable=entry_var, width=32,
-                             font=("Consolas", 9),
-                             bg=BG_INPUT, fg=FG_TEXT,
-                             insertbackground=FG_TEXT,
-                             relief="flat", bd=6)
-            entry.place(relx=0.5, rely=0.82, anchor="center")
-            entry.bind('<Return>', lambda e: self._connect_from_entry(entry_var))
+            self._btn(f, "Se reconnecter", lambda: self._do_connect(saved), FG_GREEN)
+            self._sep(f)
 
-            def connect_other():
-                val = entry_var.get().strip()
-                if val:
-                    self._connect_from_entry(entry_var)
-                else:
-                    entry.focus_set()
-
-            self._btn("Autre serveur", connect_other, color=FG_BLUE, y=0.93, width=14)
+            tk.Label(f, text="Ou entrez une autre adresse :",
+                     font=("Segoe UI", 8), fg=FG_SUB, bg=BG_CARD).pack(anchor="w", pady=(0, 6))
+            var = tk.StringVar()
+            entry = self._entry_field(f, var)
+            entry.bind("<Return>", lambda _e: self._connect_from_entry(var))
+            self._btn(f, "Autre serveur", lambda: self._connect_from_entry(var), FG_BLUE)
 
         else:
-            # No saved config — just URL input
-            self._label("Entrez l'adresse du serveur :", size=9, color=FG_SUB, y=0.35)
-            entry_var = tk.StringVar(value="")
-            entry = tk.Entry(self.frame, textvariable=entry_var, width=36,
-                             font=("Consolas", 9),
-                             bg=BG_INPUT, fg=FG_TEXT,
-                             insertbackground=FG_TEXT,
-                             relief="flat", bd=6)
-            entry.place(relx=0.5, rely=0.52, anchor="center")
+            tk.Label(f, text="Adresse du serveur :",
+                     font=("Segoe UI", 8), fg=FG_SUB, bg=BG_CARD).pack(anchor="w", pady=(0, 6))
+            var = tk.StringVar()
+            entry = self._entry_field(f, var)
             entry.focus_set()
-            entry.bind('<Return>', lambda e: self._connect_from_entry(entry_var))
-            self._btn("Connecter", lambda: self._connect_from_entry(entry_var),
-                      color=FG_BLUE, y=0.72, width=18)
+            entry.bind("<Return>", lambda _e: self._connect_from_entry(var))
+            self._btn(f, "Se connecter", lambda: self._connect_from_entry(var), FG_BLUE)
 
-    def _connect_from_entry(self, entry_var):
-        val = entry_var.get().strip().rstrip('/')
-        if not val:
-            return
-        if not val.startswith('http'):
-            val = 'http://' + val
-        self._do_connect(val)
+    # ── SCREEN: Connecting ───────────────────────────────────
 
-    # ── SCREEN 2: connecting (brief) ─────────────────────────
     def _show_connecting_screen(self, url):
         self._clear()
-        self._header(y=0.20)
-        self._label("Connexion en cours…", size=9, color=FG_SUB, y=0.42)
-        self._label(url, size=8, color=FG_BLUE, y=0.55)
+        self._set_status("Connexion en cours…", FG_ORANGE)
 
-    # ── SCREEN 3: running ────────────────────────────────────
+        f = self._centered()
+        tk.Label(f, text="Connexion en cours…",
+                 font=("Segoe UI", 10), fg=FG_TEXT, bg=BG_CARD).pack(pady=(0, 8))
+        tk.Label(f, text=url, font=("Consolas", 9),
+                 fg=FG_BLUE, bg=BG_CARD,
+                 wraplength=420, justify="center").pack()
+
+    # ── SCREEN: Running ──────────────────────────────────────
+
     def _show_running_screen(self):
         self._clear()
-        self.root.geometry("420x260")
+        self._set_status("● En ligne", FG_GREEN)
 
-        tk.Label(self.frame, text="✓", font=("Segoe UI", 26, "bold"),
-                 fg=FG_GREEN, bg=BG_CARD).place(relx=0.13, rely=0.22, anchor="center")
+        f = self._centered()
 
-        self._header(y=0.10)
-        self._label("Connecté · envoi en cours", size=9, color=FG_GREEN, y=0.22)
-        self._separator(y=0.33)
+        self._status_indicator(f, "✓", "Connecté · envoi actif",
+                               f"Toutes les {INTERVAL_SEC}s  ·  Machine : {AGENT_NAME}",
+                               FG_GREEN)
+        self._sep(f)
 
-        self._label(f"Serveur : {self.server_url}", size=8, color=FG_BLUE, y=0.43)
-        self._label(f"Machine : {AGENT_NAME}  ·  ID {MACHINE_ID}", size=8, color=FG_SUB, y=0.54)
+        self._info_row(f, "Serveur", self.server_url)
+        self._info_row(f, "ID", MACHINE_ID)
 
-        self._status_lbl = tk.Label(self.frame, text="",
-                                    font=("Segoe UI", 8),
-                                    fg=FG_SUB, bg=BG_CARD)
-        self._status_lbl.place(relx=0.5, rely=0.65, anchor="center")
+        self._sep(f)
 
-        self._btn("Arrêter la connexion", self._do_stop,
-                  color=FG_RED, y=0.82, width=22)
+        self._run_status_lbl = tk.Label(f, text="Envoi en cours…",
+                                        font=("Segoe UI", 8), fg=FG_SUB, bg=BG_CARD)
+        self._run_status_lbl.pack(pady=(0, 12))
 
+        self._btn(f, "Se déconnecter", self._do_stop, FG_RED)
         self._tick()
 
-    def _tick(self):
-        if self._status_lbl.winfo_exists():
-            if self.last_error:
-                self._status_lbl.config(
-                    text=f"Dernière erreur : {self.last_error[:48]}",
-                    fg=FG_ORANGE)
-            elif self.last_ok:
-                elapsed = int(time.time() - self.last_ok)
-                self._status_lbl.config(
-                    text=f"Dernier envoi : il y a {elapsed}s  ·  Total : {self.send_count}",
-                    fg=FG_SUB)
-        self._tick_job = self.root.after(1000, self._tick)
+    # ── SCREEN: Stopped ──────────────────────────────────────
 
-    # ── SCREEN 4: stopped ────────────────────────────────────
     def _show_stopped_screen(self):
         self._clear()
-        self.root.geometry("420x260")
+        self._set_status("Déconnecté", FG_ORANGE)
 
-        tk.Label(self.frame, text="●", font=("Segoe UI", 22, "bold"),
-                 fg=FG_SUB, bg=BG_CARD).place(relx=0.13, rely=0.22, anchor="center")
+        f = self._centered()
 
-        self._header(y=0.10)
-        self._label("Connexion arrêtée", size=9, color=FG_ORANGE, y=0.22)
-        self._separator(y=0.33)
-        self._label(f"Serveur : {self.server_url}", size=8, color=FG_SUB, y=0.43)
+        self._status_indicator(f, "●", "Déconnecté",
+                               "Aucune métrique envoyée", FG_ORANGE)
+        self._sep(f)
+        self._info_row(f, "Serveur", self.server_url)
+        self._sep(f)
 
-        # Two action buttons side by side
-        btn_frame = tk.Frame(self.frame, bg=BG_CARD)
-        btn_frame.place(relx=0.5, rely=0.65, anchor="center")
+        self._btn_row(f, [
+            ("Relancer", self._do_restart, FG_GREEN),
+            ("Changer de serveur", self._show_connect_screen, FG_BLUE),
+        ])
+        self._btn(f, "Quitter", self._quit, "#374151")
 
-        tk.Button(btn_frame, text="Relancer",
-                  command=self._do_restart,
-                  font=("Segoe UI", 9, "bold"),
-                  bg=FG_GREEN, fg="#ffffff",
-                  relief="flat", padx=16, pady=6,
-                  cursor="hand2",
-                  activebackground=FG_GREEN,
-                  activeforeground="#ffffff").pack(side="left", padx=6)
+    # ── SCREEN: Error ────────────────────────────────────────
 
-        tk.Button(btn_frame, text="Changer de serveur",
-                  command=self._show_connect_screen,
-                  font=("Segoe UI", 9, "bold"),
-                  bg=FG_BLUE, fg="#ffffff",
-                  relief="flat", padx=16, pady=6,
-                  cursor="hand2",
-                  activebackground=FG_BLUE,
-                  activeforeground="#ffffff").pack(side="left", padx=6)
+    def _show_error_screen(self, url, err):
+        self._clear()
+        self._set_status("Erreur de connexion", FG_RED)
 
-        self._btn("Quitter", self._quit, color="#374151", y=0.88, width=14)
+        f = self._centered()
 
-    # ── ACTIONS ─────────────────────────────────────────────
+        self._status_indicator(f, "✕", "Connexion échouée",
+                               (err[:64] if err else "Vérifiez l'URL et votre connexion"),
+                               FG_RED)
+        self._sep(f)
+        self._info_row(f, "Serveur", url)
+        self._sep(f)
+
+        self._btn_row(f, [
+            ("Réessayer", lambda: self._do_connect(url), FG_GREEN),
+            ("Changer de serveur", self._show_connect_screen, FG_BLUE),
+        ])
+
+    # ── Tick (running screen update) ─────────────────────────
+
+    def _tick(self):
+        try:
+            lbl = self._run_status_lbl
+            if lbl and lbl.winfo_exists():
+                if self.last_error:
+                    lbl.config(text=f"Erreur : {self.last_error[:56]}", fg=FG_ORANGE)
+                elif self.last_ok:
+                    elapsed = int(time.time() - self.last_ok)
+                    lbl.config(
+                        text=f"Dernier envoi : il y a {elapsed}s  ·  Total : {self.send_count}",
+                        fg=FG_SUB)
+        except Exception:
+            pass
+        self._tick_job = self.root.after(1000, self._tick)
+
+    # ── Actions ──────────────────────────────────────────────
+
+    def _on_close(self):
+        self.root.iconify()
+
+    def _connect_from_entry(self, var):
+        val = var.get().strip().rstrip("/")
+        if not val:
+            return
+        if not val.startswith("http"):
+            val = "http://" + val
+        self._do_connect(val)
+
     def _do_connect(self, url):
         self.server_url = url
         save_config(url)
@@ -472,41 +581,6 @@ class AgentApp:
         else:
             self._show_error_screen(url, err)
 
-    def _show_error_screen(self, url, err):
-        self._clear()
-        self.root.geometry("420x260")
-
-        tk.Label(self.frame, text="✕", font=("Segoe UI", 26, "bold"),
-                 fg=FG_RED, bg=BG_CARD).place(relx=0.13, rely=0.22, anchor="center")
-
-        self._header(y=0.10)
-        self._label("Impossible de joindre le serveur", size=9, color=FG_RED, y=0.22)
-        self._separator(y=0.33)
-        self._label(url, size=8, color=FG_SUB, y=0.42)
-        self._label(err[:60] if err else "Vérifiez l'URL et votre connexion",
-                    size=8, color=FG_ORANGE, y=0.54)
-
-        btn_frame = tk.Frame(self.frame, bg=BG_CARD)
-        btn_frame.place(relx=0.5, rely=0.73, anchor="center")
-
-        tk.Button(btn_frame, text="Réessayer",
-                  command=lambda: self._do_connect(url),
-                  font=("Segoe UI", 9, "bold"),
-                  bg=FG_GREEN, fg="#ffffff",
-                  relief="flat", padx=16, pady=6,
-                  cursor="hand2",
-                  activebackground=FG_GREEN,
-                  activeforeground="#ffffff").pack(side="left", padx=6)
-
-        tk.Button(btn_frame, text="Changer de serveur",
-                  command=self._show_connect_screen,
-                  font=("Segoe UI", 9, "bold"),
-                  bg=FG_BLUE, fg="#ffffff",
-                  relief="flat", padx=16, pady=6,
-                  cursor="hand2",
-                  activebackground=FG_BLUE,
-                  activeforeground="#ffffff").pack(side="left", padx=6)
-
     def _start_worker(self, url):
         self.stop_event.clear()
 
@@ -528,6 +602,10 @@ class AgentApp:
 
     def _do_stop(self):
         self.stop_event.set()
+        if self.server_url:
+            threading.Thread(
+                target=send_disconnect, args=(self.server_url,), daemon=True
+            ).start()
         self._show_stopped_screen()
 
     def _do_restart(self):
@@ -570,7 +648,7 @@ def run_console(cli_server=None):
     save_config(server_url)
 
     print("=" * 52)
-    print("  Node Monitor Agent")
+    print("  L2-IG2 Monitor Agent")
     print("=" * 52)
     print(f"  Serveur    : {server_url}")
     print(f"  Nom        : {AGENT_NAME}")
@@ -598,6 +676,7 @@ def run_console(cli_server=None):
             time.sleep(1)
     except KeyboardInterrupt:
         stop_event.set()
+        send_disconnect(server_url)
         print("\nAgent arrêté.")
 
 
@@ -608,7 +687,7 @@ def run_console(cli_server=None):
 def main():
     global AGENT_NAME, INTERVAL_SEC
 
-    parser = argparse.ArgumentParser(description="Node Monitor Agent")
+    parser = argparse.ArgumentParser(description="L2-IG2 Monitor Agent")
     parser.add_argument("--server", default="", help="URL du serveur")
     parser.add_argument("--name", default=socket.gethostname())
     parser.add_argument("--interval", type=int, default=5)

@@ -70,6 +70,21 @@ socket.on('machine_update', () => {
     fetchMachines();
 });
 
+socket.on('machine_offline', (data) => {
+    const machine = allMachines.find(m => m.machine_id === data.machine_id);
+    if (machine) {
+        machine._lastSeenAt = 0;
+        updateMachineCard(machine);
+        if (machine.machine_id === myMachineId) {
+            const statusBadge = document.getElementById('myMachineStatus');
+            if (statusBadge) {
+                statusBadge.textContent = 'Hors ligne';
+                statusBadge.className = 'badge badge-offline';
+            }
+        }
+    }
+});
+
 socket.on('metrics_update', (data) => {
     let machine = allMachines.find(m => m.machine_id === data.machine_id);
     if (machine) {

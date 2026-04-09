@@ -1,4 +1,4 @@
-# Node Monitor — Remote PC Monitoring System
+# L2-IG2 Monitor — Remote PC Monitoring System
 
 A real-time system monitoring dashboard with dark UI that tracks CPU, RAM, Disk, Network and Uptime from multiple client machines.
 

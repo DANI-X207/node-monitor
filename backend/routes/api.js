@@ -220,6 +220,19 @@ module.exports = (io) => {
     }
   });
 
+  router.post('/agent-disconnect', async (req, res) => {
+    try {
+      const { agentId } = req.body;
+      if (!agentId) return res.status(400).json({ error: 'Missing agentId' });
+      await db.agentDisconnect(agentId);
+      io.emit('machine_offline', { machine_id: agentId });
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('agent-disconnect error:', err);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
   router.get('/download/agent', (req, res) => {
     const agentPath = path.join(__dirname, '../../agent/agent.py');
     if (!fs.existsSync(agentPath)) {

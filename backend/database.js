@@ -117,6 +117,12 @@ const getMachineByMac = async (mac_address) => {
   return db.prepare('SELECT * FROM machines WHERE mac_address = ? OR machine_id = ?').get(mac_address, mac_address);
 };
 
+const agentDisconnect = async (machine_id) => {
+  db.prepare(
+    `UPDATE machines SET last_seen = datetime('now', '-1 hour') WHERE machine_id = ?`
+  ).run(machine_id);
+};
+
 const deduplicateByHostname = async (keepMachineId, hostname) => {
   if (!hostname || hostname === 'Unknown') return;
   const stale = db.prepare(
@@ -189,6 +195,7 @@ module.exports = {
   getMachines,
   getMachineById,
   getMachineByMac,
+  agentDisconnect,
   deduplicateByHostname,
   recordMetrics,
   getLatestMetrics,

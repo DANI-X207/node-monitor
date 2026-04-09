@@ -3,6 +3,14 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../database');
 
+const agentSourceIps = new Map();
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return req.socket?.remoteAddress || req.ip || '';
+}
+
 function formatUptime(seconds) {
   const s = Math.floor(seconds);
   const d = Math.floor(s / 86400);
@@ -26,12 +34,32 @@ function lastSeenDisplay(lastSeenStr) {
 module.exports = (io) => {
   const router = express.Router();
 
+  router.get('/identify', async (req, res) => {
+    try {
+      const clientIp = getClientIp(req);
+      for (const [machineId, sourceIp] of agentSourceIps.entries()) {
+        if (sourceIp === clientIp) return res.json({ machine_id: machineId });
+      }
+      const machines = await db.getMachines();
+      for (const machine of machines) {
+        if (machine.ip_address && machine.ip_address === clientIp) {
+          return res.json({ machine_id: machine.machine_id });
+        }
+      }
+      res.json({ machine_id: null });
+    } catch (err) {
+      res.json({ machine_id: null });
+    }
+  });
+
   router.post('/agent-report', async (req, res) => {
     try {
       const data = req.body;
       if (!data || !data.agentId) return res.status(400).json({ error: 'Missing agentId' });
 
       const machineId = data.agentId;
+      const sourceIp = getClientIp(req);
+      agentSourceIps.set(machineId, sourceIp);
       const allIps = data.ips || [];
       const firstIp = allIps.length > 0 ? allIps[0].split(':').pop() : '';
       const osDisplay = data.os || data.platform || 'Unknown';

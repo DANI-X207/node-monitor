@@ -1,6 +1,6 @@
 const socket = io();
 let allMachines = [];
-let myMachineId = localStorage.getItem('myMachineId') || null;
+let myMachineId = null;
 let currentModalMachineId = null;
 
 const ONLINE_THRESHOLD_MS = 30000;
@@ -201,7 +201,7 @@ function renderGlobalView() {
     }
 
     emptyState.style.display = 'none';
-    hint.style.display = !myMachineId ? '' : 'none';
+    hint.style.display = '';
 
     const sorted = [...allMachines].sort((a, b) => {
         if (a.machine_id === myMachineId) return -1;
@@ -450,16 +450,6 @@ function fillMachineModal(machine) {
         }).join('');
     }
 
-    const claimBtn = document.getElementById('mmClaimBtn');
-    if (isMine) {
-        claimBtn.className = 'mm-claim-btn is-mine';
-        claimBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Ma machine`;
-        claimBtn.onclick = null;
-    } else {
-        claimBtn.className = 'mm-claim-btn';
-        claimBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg> C'est ma machine`;
-        claimBtn.onclick = claimMachine;
-    }
 }
 
 function closeMachineModal() {
@@ -467,14 +457,16 @@ function closeMachineModal() {
     currentModalMachineId = null;
 }
 
-function claimMachine() {
-    if (!currentModalMachineId) return;
-    myMachineId = currentModalMachineId;
-    localStorage.setItem('myMachineId', myMachineId);
-    fetchMyMachineIp();
-    renderGlobalView();
-    const machine = allMachines.find(m => m.machine_id === myMachineId);
-    if (machine) fillMachineModal(machine);
+async function autoIdentifyMyMachine() {
+    try {
+        const res = await fetch('/api/identify');
+        const data = await res.json();
+        if (data.machine_id) {
+            myMachineId = data.machine_id;
+            fetchMyMachineIp();
+            renderGlobalView();
+        }
+    } catch(e) {}
 }
 
 function showGuide(os) {
@@ -583,3 +575,5 @@ setInterval(() => {
 
 setInterval(fetchMachines, 15000);
 fetchMachines();
+autoIdentifyMyMachine();
+setInterval(autoIdentifyMyMachine, 30000);

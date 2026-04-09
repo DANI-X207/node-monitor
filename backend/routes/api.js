@@ -50,11 +50,25 @@ module.exports = (io) => {
     try {
       const clientIp = getClientIp(req);
       const machines = await db.getMachines();
+
       for (const machine of machines) {
         if (machine.source_ip && machine.source_ip === clientIp) {
           return res.json({ machine_id: machine.machine_id });
         }
       }
+
+      for (const machine of machines) {
+        try {
+          const localIps = JSON.parse(machine.ip_addresses || '[]');
+          for (const ipEntry of localIps) {
+            const ip = typeof ipEntry === 'string' ? ipEntry.split(':').pop() : null;
+            if (ip && ip === clientIp) {
+              return res.json({ machine_id: machine.machine_id });
+            }
+          }
+        } catch (e) {}
+      }
+
       res.json({ machine_id: null });
     } catch (err) {
       res.json({ machine_id: null });

@@ -487,17 +487,21 @@ function renderMyMachine() {
     const noAgent = document.getElementById('noAgentState');
     const machineData = document.getElementById('myMachineData');
     const statusBadge = document.getElementById('myMachineStatus');
+    const btnChange = document.getElementById('btnChangeMachine');
 
     if (!machine) {
-        noAgent.style.display = '';
+        if (noAgent) noAgent.style.display = '';
         machineData.style.display = 'none';
         statusBadge.textContent = 'Hors ligne';
         statusBadge.className = 'badge badge-offline';
+        if (btnChange && !myMachineId) btnChange.style.display = 'none';
+        if (!myMachineId) _showNoAgentMain();
         return;
     }
 
-    noAgent.style.display = 'none';
+    if (noAgent) noAgent.style.display = 'none';
     machineData.style.display = '';
+    if (btnChange) btnChange.style.display = '';
 
     const online = isOnline(machine);
     statusBadge.textContent = online ? 'En ligne' : 'Hors ligne';
@@ -657,16 +661,121 @@ function closeMachineModal() {
     if (modalChart) { modalChart.destroy(); modalChart = null; }
 }
 
+function _applyIdentifiedMachine(machineId) {
+    myMachineId = machineId;
+    localStorage.setItem('myMachineId', machineId);
+    const btnChange = document.getElementById('btnChangeMachine');
+    if (btnChange) btnChange.style.display = '';
+    const detecting = document.getElementById('noAgentDetecting');
+    const main = document.getElementById('noAgentMain');
+    if (detecting) detecting.style.display = 'none';
+    if (main) main.style.display = 'none';
+    fetchMyMachineIp();
+    renderGlobalView();
+    const currentView = document.querySelector('.view.active')?.id;
+    if (currentView === 'view-me') renderMyMachine();
+}
+
+function _showNoAgentMain() {
+    const detecting = document.getElementById('noAgentDetecting');
+    const main = document.getElementById('noAgentMain');
+    if (detecting) detecting.style.display = 'none';
+    if (main) main.style.display = '';
+}
+
 async function autoIdentifyMyMachine() {
+    const saved = localStorage.getItem('myMachineId');
+    if (saved) {
+        if (allMachines.length > 0) {
+            if (allMachines.find(m => m.machine_id === saved)) {
+                _applyIdentifiedMachine(saved);
+                return;
+            }
+        } else {
+            myMachineId = saved;
+            const btnChange = document.getElementById('btnChangeMachine');
+            if (btnChange) btnChange.style.display = '';
+            const detecting = document.getElementById('noAgentDetecting');
+            const main = document.getElementById('noAgentMain');
+            if (detecting) detecting.style.display = 'none';
+            if (main) main.style.display = 'none';
+            renderGlobalView();
+            return;
+        }
+    }
+
     try {
         const res = await fetch('/api/identify');
         const data = await res.json();
         if (data.machine_id) {
-            myMachineId = data.machine_id;
-            fetchMyMachineIp();
-            renderGlobalView();
+            _applyIdentifiedMachine(data.machine_id);
+        } else {
+            _showNoAgentMain();
         }
-    } catch(e) {}
+    } catch(e) {
+        _showNoAgentMain();
+    }
+}
+
+function unlinkMyMachine() {
+    myMachineId = null;
+    localStorage.removeItem('myMachineId');
+    const btnChange = document.getElementById('btnChangeMachine');
+    if (btnChange) btnChange.style.display = 'none';
+    renderGlobalView();
+    const currentView = document.querySelector('.view.active')?.id;
+    if (currentView === 'view-me') {
+        _showNoAgentMain();
+        renderMyMachine();
+    }
+}
+
+function openMachinePicker() {
+    const modal = document.getElementById('machinePickerModal');
+    const input = document.getElementById('machineSearchInput');
+    if (input) input.value = '';
+    filterMachinePicker('');
+    modal.classList.add('open');
+    setTimeout(() => { if (input) input.focus(); }, 100);
+}
+
+function closeMachinePicker() {
+    document.getElementById('machinePickerModal').classList.remove('open');
+}
+
+function filterMachinePicker(query) {
+    const list = document.getElementById('machinePickerList');
+    if (!list) return;
+    const q = (query || '').toLowerCase();
+    const filtered = allMachines.filter(m =>
+        !q || (m.hostname || '').toLowerCase().includes(q) || (m.machine_id || '').toLowerCase().includes(q)
+    );
+
+    if (filtered.length === 0) {
+        list.innerHTML = '<div class="picker-empty">Aucune machine trouvée</div>';
+        return;
+    }
+
+    list.innerHTML = filtered.map(m => {
+        const online = isOnline(m);
+        const cpu = m.metrics?.cpu ?? 0;
+        const ram = m.metrics?.ram ?? 0;
+        return `<div class="picker-item" onclick="selectMachineFromPicker('${m.machine_id}')">
+            <div class="picker-item-left">
+                <span class="picker-hostname">${m.hostname || '—'}</span>
+                <span class="picker-os">${m.os_display || m.os_type || '—'}</span>
+            </div>
+            <div class="picker-item-right">
+                <span class="picker-status ${online ? 'online' : 'offline'}">${online ? 'En ligne' : 'Hors ligne'}</span>
+                <span class="picker-metrics">CPU ${cpu.toFixed(1)}% · RAM ${ram.toFixed(1)}%</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function selectMachineFromPicker(machineId) {
+    closeMachinePicker();
+    _applyIdentifiedMachine(machineId);
 }
 
 function showGuide(os) {

@@ -106,16 +106,54 @@
         <div id="view-me" class="view">
             <div class="view-header">
                 <h1 class="view-title">Ma Machine <span class="badge badge-offline" id="myMachineStatus">Hors ligne</span></h1>
+                <button class="btn-change-machine" id="btnChangeMachine" onclick="unlinkMyMachine()" style="display:none;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Changer de machine
+                </button>
             </div>
             <div id="my-machine-content">
                 <div class="no-agent-state" id="noAgentState">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-                    <p>Aucun agent détecté sur cette machine</p>
-                    <small>Téléchargez et lancez l'agent pour voir vos métriques ici</small>
-                    <a href="/api/download/agent" download="agent.py" class="btn-download mt-1">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Télécharger l'agent
-                    </a>
+                    <div class="no-agent-detecting" id="noAgentDetecting">
+                        <div class="detecting-spinner"></div>
+                        <p class="detecting-text">Recherche de votre machine…</p>
+                    </div>
+                    <div class="no-agent-main" id="noAgentMain" style="display:none;">
+                        <div class="no-agent-download-section">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="opacity:0.3;margin-bottom:8px;"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                            <p class="no-agent-title">Aucun agent détecté sur cette machine</p>
+                            <p class="no-agent-sub">Téléchargez et installez l'agent sur votre ordinateur pour voir vos métriques en temps réel</p>
+                            <div class="no-agent-os-grid">
+                                <button class="os-btn os-btn-windows" onclick="showGuide('windows')">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+                                    Windows (.exe)
+                                </button>
+                                <button class="os-btn os-btn-linux" onclick="showGuide('linux-debian')">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                                    Linux Debian / Ubuntu
+                                </button>
+                                <button class="os-btn os-btn-linux" onclick="showGuide('linux-fedora')">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                                    Linux Fedora / RHEL
+                                </button>
+                                <button class="os-btn os-btn-linux" onclick="showGuide('linux-arch')">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                                    Linux Arch / Manjaro
+                                </button>
+                                <button class="os-btn os-btn-python" onclick="showGuide('python')">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                                    Script Python universel
+                                </button>
+                            </div>
+                        </div>
+                        <div class="no-agent-divider"><span>ou</span></div>
+                        <div class="no-agent-manual-section">
+                            <p>Votre machine est déjà dans la liste ?</p>
+                            <button class="btn-pick-machine" onclick="openMachinePicker()">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                Choisir ma machine manuellement
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 <div id="myMachineData" style="display:none;">
                     <div class="info-bar">
@@ -318,6 +356,21 @@
             <div class="machine-modal-footer">
                 <button class="mm-close-btn" onclick="closeMachineModal()">Fermer</button>
             </div>
+        </div>
+    </div>
+
+    <!-- MACHINE PICKER MODAL -->
+    <div id="machinePickerModal" class="modal-overlay" onclick="closeMachinePicker()">
+        <div class="modal-box picker-modal-box" onclick="event.stopPropagation()">
+            <div class="modal-top">
+                <h2>Choisir ma machine</h2>
+                <button class="modal-close" onclick="closeMachinePicker()">✕</button>
+            </div>
+            <div class="picker-search-wrap">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="machineSearchInput" class="picker-search" placeholder="Rechercher par hostname…" oninput="filterMachinePicker(this.value)">
+            </div>
+            <div id="machinePickerList" class="picker-list"></div>
         </div>
     </div>
 

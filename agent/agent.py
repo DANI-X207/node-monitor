@@ -685,9 +685,9 @@ class AgentApp:
 
         def attempt():
             try:
-                status = post_metrics(url)
-                ok = status == 200
-                err = "" if ok else f"HTTP {status}"
+                post_metrics(url)
+                ok = True
+                err = ""
             except Exception as exc:
                 ok = False
                 err = str(exc)

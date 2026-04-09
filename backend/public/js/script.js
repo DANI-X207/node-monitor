@@ -1,6 +1,10 @@
 const socket = io();
 let allMachines = [];
 let myMachineId = null;
+
+// v2 = efface les anciennes valeurs corrompues (source_ip era)
+const STORAGE_KEY = 'myMachineId_v2';
+localStorage.removeItem('myMachineId');
 let currentModalMachineId = null;
 
 const ONLINE_THRESHOLD_MS = 30000;
@@ -494,7 +498,7 @@ function renderMyMachine() {
         statusBadge.className = 'badge badge-offline';
         if (myMachineId && allMachines.length > 0) {
             // ID sauvegardé mais machine absente de la DB (DB réinitialisée) → reset
-            localStorage.removeItem('myMachineId');
+            localStorage.removeItem(STORAGE_KEY);
             myMachineId = null;
             if (noAgent) noAgent.style.display = '';
             _showNoAgentMain();
@@ -666,7 +670,7 @@ function closeMachineModal() {
 
 function _applyIdentifiedMachine(machineId) {
     myMachineId = machineId;
-    localStorage.setItem('myMachineId', machineId);
+    localStorage.setItem(STORAGE_KEY, machineId);
     const detecting = document.getElementById('noAgentDetecting');
     const main = document.getElementById('noAgentMain');
     if (detecting) detecting.style.display = 'none';
@@ -713,35 +717,44 @@ async function getLocalIpViaWebRTC() {
 }
 
 async function autoIdentifyMyMachine() {
-    const saved = localStorage.getItem('myMachineId');
+    // Étape 1 : WebRTC — le plus fiable, identifie par IP locale (unique sur le LAN)
+    let localIp = null;
+    try { localIp = await getLocalIpViaWebRTC(); } catch(e) {}
 
+    if (localIp) {
+        try {
+            const res = await fetch(`/api/identify?localIp=${encodeURIComponent(localIp)}`);
+            const data = await res.json();
+            if (data.machine_id) {
+                // Correspondance trouvée sur ce réseau → identification certaine
+                _applyIdentifiedMachine(data.machine_id);
+                return;
+            }
+        } catch(e) {}
+    }
+
+    // Étape 2 : pas de correspondance WebRTC (réseau différent ou WebRTC bloqué)
+    // Utiliser l'ID sauvegardé si disponible (visiteur de retour sur autre réseau)
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-        myMachineId = saved;
         if (allMachines.length > 0) {
             if (allMachines.find(m => m.machine_id === saved)) {
                 _applyIdentifiedMachine(saved);
             } else {
-                localStorage.removeItem('myMachineId');
+                // ID sauvegardé mais machine absente de la DB → reset
+                localStorage.removeItem(STORAGE_KEY);
                 myMachineId = null;
                 _showNoAgentMain();
             }
+        } else {
+            // Machines pas encore chargées → poser l'ID, fetchMachines déclenchera renderMyMachine
+            myMachineId = saved;
         }
         return;
     }
 
-    try {
-        const localIp = await getLocalIpViaWebRTC();
-        const url = localIp ? `/api/identify?localIp=${encodeURIComponent(localIp)}` : '/api/identify';
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.machine_id) {
-            _applyIdentifiedMachine(data.machine_id);
-        } else {
-            _showNoAgentMain();
-        }
-    } catch(e) {
-        _showNoAgentMain();
-    }
+    // Étape 3 : aucun agent détecté sur ce réseau, aucun ID sauvegardé → écran de téléchargement
+    _showNoAgentMain();
 }
 
 function openMachinePicker() {

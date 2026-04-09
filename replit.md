@@ -50,13 +50,17 @@ Server listens on **port 5000**.
 - Shows "no agent" state if no matching agent found
 
 ### Télécharger l'agent (dropdown)
-- Direct download of `agent.py` from `/api/download/agent`
-- Compilation guides: Windows .exe, Linux binary, macOS binary
+- **Windows (.exe)**: Direct download of pre-built `node-monitor-agent.exe` via `/api/download/windows`, with usage notice modal based on agent.py GUI behaviour
+- **Linux (installateur)**: Download of `install-linux.sh` via `/api/download/linux` (server URL injected), with usage notice modal; script installs psutil, downloads agent.py, and optionally sets up a systemd service
+- **agent.py (tous systèmes)**: Direct download with server URL injected from `/api/download/agent`
+- **macOS**: Compilation guide modal (PyInstaller)
 
 ## Machine Identification
-- Each agent is identified by its **MAC address** (used as `machine_id`)
-- Browser auto-detects "Ma Machine" by comparing visitor IP with agent IPs
-- Falls back to localStorage if previously identified
+- Each agent is identified by a SHA-256 hash of `hostname + lowest MAC address`, truncated to 16 chars
+- Database uses `ON CONFLICT(machine_id) DO UPDATE` to upsert on each report
+- **Deduplication**: `deduplicateByHostname()` is called on every agent report to remove stale records with the same hostname but a different machine_id (prevents duplicate cards)
+- Browser auto-detects "Ma Machine" by comparing visitor IP with agent source IPs
+- Network interfaces are preserved across `fetchMachines()` polling calls to prevent flickering
 
 ## Agent Setup
 1. Download `agent.py` from the dashboard

@@ -120,6 +120,7 @@ async function fetchMachines() {
             m._uptimeAt = existing?._uptimeAt || now;
             if (existing?.ip_address) m.ip_address = existing.ip_address;
             if (existing?.ip_addresses) m.ip_addresses = existing.ip_addresses;
+            if (existing?.interfaces?.length) m.interfaces = existing.interfaces;
         });
         allMachines = fresh;
 
@@ -506,49 +507,77 @@ function showGuide(os) {
 
     const guides = {
         windows: {
-            title: 'Guide — Windows .exe',
+            title: 'Windows — Notice d\'emploi',
             html: `
-                <h3>1. Prérequis</h3>
-                <p>Installez <a href="https://python.org" target="_blank">Python 3.10+</a> (cochez "Add Python to PATH") puis :</p>
-                <pre>pip install psutil pyinstaller</pre>
-                <h3>2. Télécharger l'agent</h3>
-                <p>Cliquez sur <strong>agent.py (tous systèmes)</strong> dans le menu ci-dessus pour télécharger le fichier.</p>
-                <h3>3. Compiler en .exe</h3>
-                <pre>pyinstaller --onefile --noconsole --name node-monitor-agent agent.py</pre>
-                <p>L'exécutable se trouve dans <code>dist\\node-monitor-agent.exe</code></p>
-                <h3>4. Lancer</h3>
-                <pre>dist\\node-monitor-agent.exe</pre>
-                <p>Au premier lancement, une fenêtre vous demande l'adresse du serveur. L'URL est ensuite sauvegardée dans <code>agent_config.json</code> pour les prochains démarrages.</p>
+                <div style="margin-bottom:16px;">
+                    <a href="/api/download/windows" download="node-monitor-agent.exe" class="guide-download-btn">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Télécharger node-monitor-agent.exe
+                    </a>
+                </div>
+                <h3>1. Lancer l'agent</h3>
+                <p>Double-cliquez sur <code>node-monitor-agent.exe</code>. Une fenêtre s'ouvre automatiquement.</p>
+                <h3>2. Connexion au serveur</h3>
+                <p>Au premier lancement, entrez l'adresse du serveur dans le champ prévu. Si l'URL est déjà pré-remplie, cliquez simplement sur <strong>Se reconnecter</strong>.</p>
+                <p>La configuration est sauvegardée dans <code>agent_config.json</code> à côté de l'exécutable.</p>
+                <h3>3. État de l'agent</h3>
+                <p>Une fois connecté, la fenêtre affiche :</p>
+                <ul>
+                    <li>✓ <strong>Connecté</strong> — les métriques sont envoyées toutes les <strong>5 secondes</strong></li>
+                    <li>Nom de la machine et identifiant unique</li>
+                    <li>Heure du dernier envoi et compteur total</li>
+                </ul>
+                <h3>4. Fonctionnement en arrière-plan</h3>
+                <p>Fermez la fenêtre → l'agent se <strong>réduit dans la barre des tâches</strong> et continue à envoyer les métriques.</p>
+                <p>Cliquez sur <strong>Arrêter la connexion</strong> pour mettre en pause, puis <strong>Relancer</strong> pour reprendre.</p>
+                <h3>5. Changer de serveur</h3>
+                <p>Cliquez sur <strong>Changer de serveur</strong> depuis l'écran arrêté pour saisir une nouvelle adresse.</p>
+                <h3>6. Note Windows Defender</h3>
+                <p>Si Windows affiche un avertissement SmartScreen, cliquez sur <strong>Informations complémentaires → Exécuter quand même</strong>.</p>
             `
         },
         linux: {
-            title: 'Guide — Linux binaire',
+            title: 'Linux — Notice d\'emploi',
             html: `
-                <h3>1. Prérequis</h3>
-                <pre>sudo apt update && sudo apt install python3 python3-pip -y
-pip3 install psutil pyinstaller</pre>
-                <h3>2. Télécharger l'agent</h3>
-                <p>Cliquez sur <strong>agent.py (tous systèmes)</strong> dans le menu ci-dessus.</p>
-                <h3>3. Compiler en binaire</h3>
-                <pre>pyinstaller --onefile --name node-monitor-agent agent.py</pre>
-                <p>Le binaire se trouve dans <code>dist/node-monitor-agent</code></p>
-                <h3>4. Lancer</h3>
-                <pre>chmod +x dist/node-monitor-agent
-./dist/node-monitor-agent</pre>
-                <p>Au premier lancement, entrez l'adresse du serveur dans le terminal. Elle est sauvegardée dans <code>agent_config.json</code>.</p>
-                <h3>5. Démarrage automatique (optionnel)</h3>
-                <pre>sudo cp dist/node-monitor-agent /usr/local/bin/
-sudo chmod +x /usr/local/bin/node-monitor-agent</pre>
+                <div style="margin-bottom:16px;">
+                    <a href="/api/download/linux" download="install-linux.sh" class="guide-download-btn">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Télécharger install-linux.sh
+                    </a>
+                </div>
+                <h3>1. Rendre le script exécutable et le lancer</h3>
+                <pre>chmod +x install-linux.sh
+./install-linux.sh</pre>
+                <p>Le script installe automatiquement les dépendances (<code>psutil</code>) et télécharge l'agent.</p>
+                <h3>2. Ce que fait l'installateur</h3>
+                <ul>
+                    <li>Vérifie que Python 3 est présent</li>
+                    <li>Installe <code>psutil</code> via pip3</li>
+                    <li>Télécharge <code>agent.py</code> dans <code>~/.node-monitor/</code></li>
+                    <li>Crée un script de lancement <code>node-monitor-agent.sh</code></li>
+                    <li>Propose l'installation comme <strong>service systemd</strong> (démarrage automatique)</li>
+                </ul>
+                <h3>3. Lancer l'agent manuellement</h3>
+                <pre>bash ~/.node-monitor/node-monitor-agent.sh</pre>
+                <p>Ou directement :</p>
+                <pre>python3 ~/.node-monitor/agent.py --server VOTRE_URL_SERVEUR</pre>
+                <h3>4. Service systemd (démarrage automatique)</h3>
+                <p>Répondez <strong>o</strong> à la question du script pour activer le démarrage automatique au boot.</p>
+                <pre>sudo systemctl status node-monitor-agent
+sudo systemctl stop node-monitor-agent
+sudo journalctl -u node-monitor-agent -f</pre>
+                <h3>5. État de l'agent</h3>
+                <p>L'agent envoie les métriques toutes les <strong>5 secondes</strong>. Arrêt manuel : <strong>Ctrl+C</strong>.</p>
             `
         },
         macos: {
-            title: 'Guide — macOS binaire',
+            title: 'Guide — macOS',
             html: `
                 <h3>1. Prérequis</h3>
                 <pre>brew install python3
 pip3 install psutil pyinstaller</pre>
                 <h3>2. Télécharger l'agent</h3>
-                <p>Cliquez sur <strong>agent.py (tous systèmes)</strong> dans le menu ci-dessus.</p>
+                <p>Cliquez sur <strong>agent.py (tous systèmes)</strong> dans le menu.</p>
                 <h3>3. Compiler</h3>
                 <pre>pyinstaller --onefile --name node-monitor-agent agent.py</pre>
                 <h3>4. Lancer</h3>

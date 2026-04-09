@@ -59,10 +59,12 @@ module.exports = (io) => {
       const osDisplay = data.os || data.platform || 'Unknown';
       const osType = osDisplay.split(' ')[0];
 
+      const hostname = data.hostname || data.name || 'Unknown';
+
       await db.addMachine({
         machine_id: machineId,
         mac_address: machineId,
-        hostname: data.hostname || data.name || 'Unknown',
+        hostname,
         ip_address: firstIp,
         source_ip: sourceIp,
         ip_addresses: JSON.stringify(allIps),
@@ -73,6 +75,8 @@ module.exports = (io) => {
         cpu_cores_physical: data.cpu?.physicalCores || null,
         cpu_cores_logical: data.cpu?.cores || null
       });
+
+      await db.deduplicateByHostname(machineId, hostname);
 
       const uptime = Math.floor(data.uptime || 0);
       const disksMapped = (data.disk || []).map(d => ({
@@ -231,6 +235,34 @@ module.exports = (io) => {
 
     res.setHeader('Content-Disposition', 'attachment; filename="agent.py"');
     res.setHeader('Content-Type', 'text/x-python; charset=utf-8');
+    res.send(content);
+  });
+
+  router.get('/download/windows', (req, res) => {
+    const exePath = path.join(__dirname, '../../agent/node-monitor-agent.exe');
+    if (!fs.existsSync(exePath)) {
+      return res.status(404).send('Executable not found');
+    }
+    res.setHeader('Content-Disposition', 'attachment; filename="node-monitor-agent.exe"');
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.sendFile(exePath);
+  });
+
+  router.get('/download/linux', (req, res) => {
+    const scriptPath = path.join(__dirname, '../../agent/install-linux.sh');
+    if (!fs.existsSync(scriptPath)) {
+      return res.status(404).send('Installer not found');
+    }
+
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:5000';
+    const serverUrl = `${protocol}://${host}`;
+
+    let content = fs.readFileSync(scriptPath, 'utf8');
+    content = content.replace(/##SERVER_URL##/g, serverUrl);
+
+    res.setHeader('Content-Disposition', 'attachment; filename="install-linux.sh"');
+    res.setHeader('Content-Type', 'text/x-shellscript; charset=utf-8');
     res.send(content);
   });
 

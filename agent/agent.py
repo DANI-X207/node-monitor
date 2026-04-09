@@ -92,6 +92,14 @@ def get_machine_id():
 
 MACHINE_ID = get_machine_id()
 
+# Initialise le compteur CPU de psutil pour que le premier appel interval=None soit valide
+if HAS_PSUTIL:
+    try:
+        import psutil as _psutil_init
+        _psutil_init.cpu_percent(interval=None)
+    except Exception:
+        pass
+
 
 def _get_launcher_path():
     return os.path.join(os.path.expanduser("~"), "l2ig2-monitor", "l2ig2-monitor-agent.sh")
@@ -185,7 +193,7 @@ def get_metrics():
             ips = []
 
     if HAS_PSUTIL:
-        cpu_pct = psutil.cpu_percent(interval=0.5)
+        cpu_pct = psutil.cpu_percent(interval=None)
         mem = psutil.virtual_memory()
         net = psutil.net_io_counters()
         uptime = time.time() - psutil.boot_time()

@@ -68,7 +68,7 @@
             <div id="machines-grid" class="machines-grid">
                 <div class="global-hint" id="globalHint" style="display:none;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                    Cliquez sur une machine pour la définir comme <strong>Ma Machine</strong>
+                    Cliquez sur une machine pour voir ses détails — vous pourrez la définir comme <strong>Ma Machine</strong>
                 </div>
                 <div class="empty-state" id="emptyGlobal">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
@@ -192,6 +192,73 @@
             </div>
         </div>
     </main>
+
+    <!-- MACHINE DETAIL MODAL -->
+    <div id="machineModal" class="modal-overlay" onclick="closeMachineModal()">
+        <div class="modal-box machine-modal-box" onclick="event.stopPropagation()">
+            <div class="modal-top">
+                <div class="machine-modal-title">
+                    <span id="mm-hostname" class="mm-hostname-text">—</span>
+                    <span id="mm-status" class="card-status"></span>
+                </div>
+                <button class="modal-close" onclick="closeMachineModal()">✕</button>
+            </div>
+            <div class="machine-modal-body">
+                <div class="machine-modal-meta">
+                    <div class="meta-item"><span class="info-label">OS</span><span class="info-value" id="mm-os">—</span></div>
+                    <div class="meta-item"><span class="info-label">ARCHITECTURE</span><span class="info-value" id="mm-arch">—</span></div>
+                    <div class="meta-item"><span class="info-label">MODÈLE CPU</span><span class="info-value" id="mm-cpu-model">—</span></div>
+                    <div class="meta-item"><span class="info-label">CŒURS</span><span class="info-value" id="mm-cores">—</span></div>
+                    <div class="meta-item"><span class="info-label">UPTIME</span><span class="info-value" id="mm-uptime">—</span></div>
+                    <div class="meta-item"><span class="info-label">DERNIÈRE MAJ</span><span class="info-value" id="mm-lastseen">—</span></div>
+                </div>
+
+                <div class="machine-modal-metrics">
+                    <div class="mm-metric">
+                        <div class="mm-metric-header">
+                            <span class="panel-title">CPU</span>
+                            <span class="panel-value" id="mm-cpu-val">0%</span>
+                        </div>
+                        <div class="gauge-bar"><div class="gauge-fill gauge-cpu" id="mm-cpu-bar" style="width:0%"></div></div>
+                    </div>
+                    <div class="mm-metric">
+                        <div class="mm-metric-header">
+                            <span class="panel-title">MÉMOIRE</span>
+                            <span class="panel-value" id="mm-ram-val">0%</span>
+                        </div>
+                        <div class="gauge-bar"><div class="gauge-fill gauge-ram" id="mm-ram-bar" style="width:0%"></div></div>
+                        <div class="mm-metric-sub">
+                            <span>Utilisé : <b id="mm-ram-used">—</b></span>
+                            <span>Total : <b id="mm-ram-total">—</b></span>
+                            <span>Libre : <b id="mm-ram-free">—</b></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mm-section">
+                    <span class="panel-title">RÉSEAU</span>
+                    <div class="mm-network">
+                        <span class="net-arrow down">↓</span>
+                        <div><span class="sub-label">REÇU</span><span class="net-value" id="mm-net-recv">—</span></div>
+                        <span class="net-arrow up">↑</span>
+                        <div><span class="sub-label">ENVOYÉ</span><span class="net-value" id="mm-net-sent">—</span></div>
+                    </div>
+                </div>
+
+                <div class="mm-section">
+                    <span class="panel-title">DISQUES</span>
+                    <div id="mm-disks" class="disks-list mm-disks"></div>
+                </div>
+            </div>
+            <div class="machine-modal-footer">
+                <button class="mm-claim-btn" id="mmClaimBtn" onclick="claimMachine()">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                    C'est ma machine
+                </button>
+                <button class="mm-close-btn" onclick="closeMachineModal()">Fermer</button>
+            </div>
+        </div>
+    </div>
 
     <!-- GUIDE MODAL -->
     <div id="guideModal" class="modal-overlay" onclick="closeGuide()">

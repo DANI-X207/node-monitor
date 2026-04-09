@@ -633,6 +633,154 @@ body {
     text-decoration: none;
 }
 
+/* MACHINE DETAIL MODAL */
+.machine-modal-box {
+    max-width: 680px;
+}
+
+.machine-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.mm-hostname-text {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.machine-modal-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.machine-modal-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+}
+
+.meta-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 120px;
+}
+
+.machine-modal-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.mm-metric {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+}
+
+.mm-metric-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.mm-metric-header .panel-value {
+    font-size: 18px;
+}
+
+.mm-metric-sub {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    margin-top: 10px;
+}
+
+.mm-metric-sub span {
+    font-size: 12px;
+    color: var(--text2);
+}
+
+.mm-metric-sub b {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.mm-section {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+}
+
+.mm-network {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 10px;
+}
+
+.mm-disks {
+    margin-top: 10px;
+}
+
+.machine-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+}
+
+.mm-claim-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text2);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.mm-claim-btn:hover {
+    border-color: var(--blue);
+    color: var(--blue);
+}
+
+.mm-claim-btn.is-mine {
+    border-color: var(--green);
+    color: var(--green);
+    cursor: default;
+}
+
+.mm-close-btn {
+    padding: 7px 16px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.mm-close-btn:hover { opacity: 0.8; }
+
 @media (max-width: 700px) {
     .metrics-row { grid-template-columns: 1fr; }
     .info-bar { gap: 14px; }
@@ -640,4 +788,5 @@ body {
     .navbar { gap: 12px; padding: 0 12px; }
     .nav-brand { font-size: 13px; }
     .nav-link span { display: none; }
+    .machine-modal-metrics { grid-template-columns: 1fr; }
 }

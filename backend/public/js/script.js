@@ -1,6 +1,7 @@
 const socket = io();
 let allMachines = [];
 let myMachineId = localStorage.getItem('myMachineId') || null;
+let currentModalMachineId = null;
 
 const ONLINE_THRESHOLD_MS = 30000;
 
@@ -97,6 +98,7 @@ socket.on('metrics_update', (data) => {
 
         updateMachineCard(machine);
         if (machine.machine_id === myMachineId) renderMyMachineMetrics(machine);
+        if (machine.machine_id === currentModalMachineId) fillMachineModal(machine);
     } else {
         fetchMachines();
     }
@@ -161,14 +163,20 @@ function renderGlobalView() {
     emptyState.style.display = 'none';
     hint.style.display = !myMachineId ? '' : 'none';
 
-    allMachines.forEach(machine => {
+    const sorted = [...allMachines].sort((a, b) => {
+        if (a.machine_id === myMachineId) return -1;
+        if (b.machine_id === myMachineId) return 1;
+        return 0;
+    });
+
+    sorted.forEach(machine => {
         let card = document.querySelector(`.machine-card[data-machine-id="${machine.machine_id}"]`);
         if (!card) {
             card = createMachineCard(machine);
-            grid.appendChild(card);
         } else {
             updateMachineCard(machine, card);
         }
+        grid.appendChild(card);
     });
 
     document.querySelectorAll('.machine-card').forEach(card => {
@@ -182,12 +190,9 @@ function createMachineCard(machine) {
     const card = document.createElement('div');
     card.className = 'machine-card';
     card.dataset.machineId = machine.machine_id;
-    card.title = 'Cliquer pour définir comme Ma Machine';
+    card.title = 'Cliquer pour voir les détails';
     card.addEventListener('click', () => {
-        myMachineId = machine.machine_id;
-        localStorage.setItem('myMachineId', myMachineId);
-        fetchMyMachineIp();
-        switchView('me');
+        showMachineModal(machine.machine_id);
     });
     updateMachineCard(machine, card);
     return card;
@@ -338,6 +343,97 @@ function renderMyMachineMetrics(machine) {
     }
 }
 
+function showMachineModal(machineId) {
+    const machine = allMachines.find(m => m.machine_id === machineId);
+    if (!machine) return;
+
+    currentModalMachineId = machineId;
+    fillMachineModal(machine);
+    document.getElementById('machineModal').classList.add('open');
+}
+
+function fillMachineModal(machine) {
+    const m = machine.metrics || {};
+    const online = isOnline(machine);
+    const cpu = m.cpu ?? 0;
+    const ram = m.ram ?? 0;
+    const isMine = machine.machine_id === myMachineId;
+
+    const elapsedSec = machine._lastSeenAt ? (Date.now() - machine._lastSeenAt) / 1000 : null;
+    const uptimeSec = machine._uptimeBase != null && machine._uptimeAt
+        ? machine._uptimeBase + (Date.now() - machine._uptimeAt) / 1000
+        : null;
+
+    document.getElementById('mm-hostname').textContent = machine.hostname || '—';
+    const statusEl = document.getElementById('mm-status');
+    statusEl.textContent = online ? 'En ligne' : 'Hors ligne';
+    statusEl.className = 'card-status ' + (online ? 'online' : 'offline');
+
+    document.getElementById('mm-os').textContent = machine.os_display || machine.os_type || '—';
+    document.getElementById('mm-arch').textContent = machine.architecture || '—';
+    document.getElementById('mm-cpu-model').textContent = machine.cpu_model || '—';
+    document.getElementById('mm-cores').textContent = machine.cpu_cores_logical ? machine.cpu_cores_logical + ' cœurs' : '—';
+    document.getElementById('mm-uptime').textContent = uptimeSec !== null ? formatUptime(uptimeSec) : '—';
+    document.getElementById('mm-lastseen').textContent = elapsedSec !== null ? formatLastSeen(elapsedSec) : '—';
+
+    document.getElementById('mm-cpu-val').textContent = cpu.toFixed(1) + '%';
+    document.getElementById('mm-cpu-bar').style.width = cpu + '%';
+    document.getElementById('mm-ram-val').textContent = ram.toFixed(1) + '%';
+    document.getElementById('mm-ram-bar').style.width = ram + '%';
+    document.getElementById('mm-ram-used').textContent = mbToDisplay(m.ram_used_mb);
+    document.getElementById('mm-ram-total').textContent = mbToDisplay(m.ram_total_mb);
+    document.getElementById('mm-ram-free').textContent = mbToDisplay(m.ram_free_mb);
+    document.getElementById('mm-net-recv').textContent = mbToDisplay(m.network_recv_mb);
+    document.getElementById('mm-net-sent').textContent = mbToDisplay(m.network_sent_mb);
+
+    const disksEl = document.getElementById('mm-disks');
+    const disks = m.disks || [];
+    if (disks.length === 0) {
+        disksEl.innerHTML = '<span style="color:var(--text2);font-size:12px;">Aucun disque détecté</span>';
+    } else {
+        disksEl.innerHTML = disks.map(d => {
+            const pct = d.percent || 0;
+            const cls = pct > 85 ? 'danger' : pct > 65 ? 'warn' : '';
+            const label = d.device || d.mountpoint || '?';
+            const usedGb = typeof d.used_gb === 'number' ? d.used_gb.toFixed(2) : '?';
+            const totalGb = typeof d.total_gb === 'number' ? d.total_gb.toFixed(2) : '?';
+            return `<div class="disk-item">
+                <div class="disk-header">
+                    <span class="disk-name">${label}</span>
+                    <span class="disk-info">${usedGb} GB / ${totalGb} GB (${pct.toFixed(1)}%)</span>
+                </div>
+                <div class="disk-bar"><div class="disk-fill ${cls}" style="width:${pct}%"></div></div>
+            </div>`;
+        }).join('');
+    }
+
+    const claimBtn = document.getElementById('mmClaimBtn');
+    if (isMine) {
+        claimBtn.className = 'mm-claim-btn is-mine';
+        claimBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Ma machine`;
+        claimBtn.onclick = null;
+    } else {
+        claimBtn.className = 'mm-claim-btn';
+        claimBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg> C'est ma machine`;
+        claimBtn.onclick = claimMachine;
+    }
+}
+
+function closeMachineModal() {
+    document.getElementById('machineModal').classList.remove('open');
+    currentModalMachineId = null;
+}
+
+function claimMachine() {
+    if (!currentModalMachineId) return;
+    myMachineId = currentModalMachineId;
+    localStorage.setItem('myMachineId', myMachineId);
+    fetchMyMachineIp();
+    renderGlobalView();
+    const machine = allMachines.find(m => m.machine_id === myMachineId);
+    if (machine) fillMachineModal(machine);
+}
+
 function showGuide(os) {
     const modal = document.getElementById('guideModal');
     const title = document.getElementById('guideTitle');
@@ -413,8 +509,6 @@ function closeGuide() {
 }
 
 setInterval(() => {
-    const now = Date.now();
-
     allMachines.forEach(machine => {
         updateMachineCard(machine);
     });
@@ -423,6 +517,24 @@ setInterval(() => {
     if (currentView === 'view-me' && myMachineId) {
         const machine = allMachines.find(m => m.machine_id === myMachineId);
         if (machine) tickMyMachine(machine);
+    }
+
+    if (currentModalMachineId) {
+        const machine = allMachines.find(m => m.machine_id === currentModalMachineId);
+        if (machine) {
+            const elapsedSec = machine._lastSeenAt ? (Date.now() - machine._lastSeenAt) / 1000 : null;
+            const uptimeSec = machine._uptimeBase != null && machine._uptimeAt
+                ? machine._uptimeBase + (Date.now() - machine._uptimeAt) / 1000
+                : null;
+            if (uptimeSec !== null) document.getElementById('mm-uptime').textContent = formatUptime(uptimeSec);
+            if (elapsedSec !== null) document.getElementById('mm-lastseen').textContent = formatLastSeen(elapsedSec);
+            const online = isOnline(machine);
+            const statusEl = document.getElementById('mm-status');
+            if (statusEl) {
+                statusEl.textContent = online ? 'En ligne' : 'Hors ligne';
+                statusEl.className = 'card-status ' + (online ? 'online' : 'offline');
+            }
+        }
     }
 }, 1000);
 

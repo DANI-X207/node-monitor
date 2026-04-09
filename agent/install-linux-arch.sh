@@ -3,7 +3,7 @@
 # Usage : chmod +x install-linux-arch.sh && ./install-linux-arch.sh
 
 SERVER_URL="##SERVER_URL##"
-INSTALL_DIR="$HOME/.l2ig2-monitor"
+INSTALL_DIR="$HOME/l2ig2-monitor"
 SERVICE_NAME="l2ig2-monitor-agent"
 
 echo "======================================================"

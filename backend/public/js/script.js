@@ -560,6 +560,10 @@ function showGuide(os) {
                         Télécharger install-linux-debian.sh
                     </a>
                 </div>
+                <div style="background:#0d2137;border:1px solid #1e4a6e;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;">
+                    📁 <strong>Dossier d'installation :</strong> <code style="color:#4f8ef7">~/l2ig2-monitor/</code><br>
+                    <span style="color:#6b7280;font-size:11px;">Retrouvez ce dossier directement dans votre répertoire personnel (Home).</span>
+                </div>
                 <h3>1. Rendre le script exécutable et le lancer</h3>
                 <pre>chmod +x install-linux-debian.sh
 ./install-linux-debian.sh</pre>
@@ -568,12 +572,12 @@ function showGuide(os) {
                 <ul>
                     <li>Installe <code>python3</code>, <code>python3-pip</code> si absents (<code>apt-get</code>)</li>
                     <li>Installe <code>psutil</code> (pip ou paquet <code>python3-psutil</code>)</li>
-                    <li>Télécharge <code>agent.py</code> dans <code>~/.l2ig2-monitor/</code></li>
+                    <li>Télécharge <code>agent.py</code> dans <code>~/l2ig2-monitor/</code></li>
                     <li>Crée le script de lancement <code>l2ig2-monitor-agent.sh</code></li>
                     <li>Propose l'installation comme <strong>service systemd</strong> (démarrage automatique)</li>
                 </ul>
                 <h3>3. Lancer l'agent manuellement</h3>
-                <pre>bash ~/.l2ig2-monitor/l2ig2-monitor-agent.sh</pre>
+                <pre>bash ~/l2ig2-monitor/l2ig2-monitor-agent.sh</pre>
                 <h3>4. Service systemd (démarrage automatique)</h3>
                 <p>Répondez <strong>o</strong> à la question du script pour activer le démarrage au boot.</p>
                 <pre>sudo systemctl status l2ig2-monitor-agent
@@ -582,7 +586,7 @@ sudo journalctl -u l2ig2-monitor-agent -f</pre>
                 <h3>5. Désinstaller</h3>
                 <pre>sudo systemctl stop l2ig2-monitor-agent
 sudo systemctl disable l2ig2-monitor-agent
-rm -rf ~/.l2ig2-monitor</pre>
+rm -rf ~/l2ig2-monitor</pre>
             `
         },
         'linux-fedora': {
@@ -594,6 +598,10 @@ rm -rf ~/.l2ig2-monitor</pre>
                         Télécharger install-linux-fedora.sh
                     </a>
                 </div>
+                <div style="background:#0d2137;border:1px solid #1e4a6e;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;">
+                    📁 <strong>Dossier d'installation :</strong> <code style="color:#4f8ef7">~/l2ig2-monitor/</code><br>
+                    <span style="color:#6b7280;font-size:11px;">Retrouvez ce dossier directement dans votre répertoire personnel (Home).</span>
+                </div>
                 <h3>1. Rendre le script exécutable et le lancer</h3>
                 <pre>chmod +x install-linux-fedora.sh
 ./install-linux-fedora.sh</pre>
@@ -603,12 +611,12 @@ rm -rf ~/.l2ig2-monitor</pre>
                     <li>Détecte automatiquement <code>dnf</code> ou <code>yum</code></li>
                     <li>Installe <code>python3</code>, <code>python3-pip</code> si absents</li>
                     <li>Installe <code>psutil</code> (pip ou paquet <code>python3-psutil</code>)</li>
-                    <li>Télécharge <code>agent.py</code> dans <code>~/.l2ig2-monitor/</code></li>
+                    <li>Télécharge <code>agent.py</code> dans <code>~/l2ig2-monitor/</code></li>
                     <li>Crée le script de lancement <code>l2ig2-monitor-agent.sh</code></li>
                     <li>Propose l'installation comme <strong>service systemd</strong></li>
                 </ul>
                 <h3>3. Lancer l'agent manuellement</h3>
-                <pre>bash ~/.l2ig2-monitor/l2ig2-monitor-agent.sh</pre>
+                <pre>bash ~/l2ig2-monitor/l2ig2-monitor-agent.sh</pre>
                 <h3>4. Service systemd (démarrage automatique)</h3>
                 <pre>sudo systemctl status l2ig2-monitor-agent
 sudo systemctl stop l2ig2-monitor-agent
@@ -626,6 +634,10 @@ sudo journalctl -u l2ig2-monitor-agent -f</pre>
                         Télécharger install-linux-arch.sh
                     </a>
                 </div>
+                <div style="background:#0d2137;border:1px solid #1e4a6e;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;">
+                    📁 <strong>Dossier d'installation :</strong> <code style="color:#4f8ef7">~/l2ig2-monitor/</code><br>
+                    <span style="color:#6b7280;font-size:11px;">Retrouvez ce dossier directement dans votre répertoire personnel (Home).</span>
+                </div>
                 <h3>1. Rendre le script exécutable et le lancer</h3>
                 <pre>chmod +x install-linux-arch.sh
 ./install-linux-arch.sh</pre>
@@ -634,12 +646,12 @@ sudo journalctl -u l2ig2-monitor-agent -f</pre>
                 <ul>
                     <li>Installe <code>python</code> si absent (<code>pacman -S python</code>)</li>
                     <li>Installe <code>python-psutil</code> (dépôts Arch ou pip)</li>
-                    <li>Télécharge <code>agent.py</code> dans <code>~/.l2ig2-monitor/</code></li>
+                    <li>Télécharge <code>agent.py</code> dans <code>~/l2ig2-monitor/</code></li>
                     <li>Crée le script de lancement <code>l2ig2-monitor-agent.sh</code></li>
                     <li>Propose l'installation comme <strong>service systemd</strong></li>
                 </ul>
                 <h3>3. Lancer l'agent manuellement</h3>
-                <pre>bash ~/.l2ig2-monitor/l2ig2-monitor-agent.sh</pre>
+                <pre>bash ~/l2ig2-monitor/l2ig2-monitor-agent.sh</pre>
                 <h3>4. Service systemd (démarrage automatique)</h3>
                 <pre>sudo systemctl status l2ig2-monitor-agent
 sudo systemctl stop l2ig2-monitor-agent
@@ -657,6 +669,10 @@ sudo journalctl -u l2ig2-monitor-agent -f</pre>
                         Télécharger install-linux-opensuse.sh
                     </a>
                 </div>
+                <div style="background:#0d2137;border:1px solid #1e4a6e;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;">
+                    📁 <strong>Dossier d'installation :</strong> <code style="color:#4f8ef7">~/l2ig2-monitor/</code><br>
+                    <span style="color:#6b7280;font-size:11px;">Retrouvez ce dossier directement dans votre répertoire personnel (Home).</span>
+                </div>
                 <h3>1. Rendre le script exécutable et le lancer</h3>
                 <pre>chmod +x install-linux-opensuse.sh
 ./install-linux-opensuse.sh</pre>
@@ -665,12 +681,12 @@ sudo journalctl -u l2ig2-monitor-agent -f</pre>
                 <ul>
                     <li>Installe <code>python3</code>, <code>python3-pip</code> si absents (<code>zypper</code>)</li>
                     <li>Installe <code>psutil</code> (pip ou paquet <code>python3-psutil</code>)</li>
-                    <li>Télécharge <code>agent.py</code> dans <code>~/.l2ig2-monitor/</code></li>
+                    <li>Télécharge <code>agent.py</code> dans <code>~/l2ig2-monitor/</code></li>
                     <li>Crée le script de lancement <code>l2ig2-monitor-agent.sh</code></li>
                     <li>Propose l'installation comme <strong>service systemd</strong></li>
                 </ul>
                 <h3>3. Lancer l'agent manuellement</h3>
-                <pre>bash ~/.l2ig2-monitor/l2ig2-monitor-agent.sh</pre>
+                <pre>bash ~/l2ig2-monitor/l2ig2-monitor-agent.sh</pre>
                 <h3>4. Service systemd (démarrage automatique)</h3>
                 <pre>sudo systemctl status l2ig2-monitor-agent
 sudo systemctl stop l2ig2-monitor-agent

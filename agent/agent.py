@@ -94,7 +94,7 @@ MACHINE_ID = get_machine_id()
 
 
 def _get_launcher_path():
-    return os.path.join(os.path.expanduser("~"), ".l2ig2-monitor", "l2ig2-monitor-agent.sh")
+    return os.path.join(os.path.expanduser("~"), "l2ig2-monitor", "l2ig2-monitor-agent.sh")
 
 
 def load_config():
@@ -472,6 +472,8 @@ class AgentApp:
             entry = self._entry_field(f, var)
             entry.bind("<Return>", lambda _e: self._connect_from_entry(var))
             self._btn(f, "Autre serveur", lambda: self._connect_from_entry(var), FG_BLUE)
+            self._sep(f)
+            self._btn(f, "Quitter", self._quit, "#374151")
 
         else:
             tk.Label(f, text="Adresse du serveur :",
@@ -481,6 +483,8 @@ class AgentApp:
             entry.focus_set()
             entry.bind("<Return>", lambda _e: self._connect_from_entry(var))
             self._btn(f, "Se connecter", lambda: self._connect_from_entry(var), FG_BLUE)
+            self._sep(f)
+            self._btn(f, "Quitter", self._quit, "#374151")
 
     # ── SCREEN: Connecting ───────────────────────────────────
 
@@ -580,7 +584,7 @@ class AgentApp:
     # ── Actions ──────────────────────────────────────────────
 
     def _on_close(self):
-        self.root.iconify()
+        self._quit()
 
     def _connect_from_entry(self, var):
         val = var.get().strip().rstrip("/")
@@ -649,6 +653,11 @@ class AgentApp:
 
     def _quit(self):
         self.stop_event.set()
+        if self.server_url:
+            try:
+                send_disconnect(self.server_url)
+            except Exception:
+                pass
         self.root.destroy()
         sys.exit(0)
 

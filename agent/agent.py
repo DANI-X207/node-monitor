@@ -48,7 +48,7 @@ except ImportError:
 
 DEFAULT_SERVER = "##SERVER_URL##"
 AGENT_NAME = socket.gethostname()
-INTERVAL_SEC = 5
+INTERVAL_SEC = 1
 
 # ── Dark theme colours ───────────────────────────────────────
 BG_DARK   = "#0d1117"

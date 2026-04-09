@@ -117,6 +117,17 @@ const getMachineByMac = async (mac_address) => {
   return db.prepare('SELECT * FROM machines WHERE mac_address = ? OR machine_id = ?').get(mac_address, mac_address);
 };
 
+const deduplicateByHostname = async (keepMachineId, hostname) => {
+  if (!hostname || hostname === 'Unknown') return;
+  const stale = db.prepare(
+    `SELECT machine_id FROM machines WHERE hostname = ? AND machine_id != ?`
+  ).all(hostname, keepMachineId);
+  for (const row of stale) {
+    db.prepare(`DELETE FROM metrics WHERE machine_id = ?`).run(row.machine_id);
+    db.prepare(`DELETE FROM machines WHERE machine_id = ?`).run(row.machine_id);
+  }
+};
+
 const recordMetrics = async (machine_id, data) => {
   db.prepare(`UPDATE machines SET last_seen = CURRENT_TIMESTAMP WHERE machine_id = ?`).run(machine_id);
 
@@ -178,6 +189,7 @@ module.exports = {
   getMachines,
   getMachineById,
   getMachineByMac,
+  deduplicateByHostname,
   recordMetrics,
   getLatestMetrics,
   getMetricsHistory,

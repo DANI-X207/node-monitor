@@ -62,10 +62,29 @@ BORDER    = "#2d3148"
 
 
 def get_machine_id():
+    """ID stable basé sur hostname + MAC le plus bas parmi toutes les interfaces.
+    Utilise psutil si disponible pour lister tous les MACs, sinon uuid.getnode().
+    Le résultat est identique même si l'interface réseau active change."""
     try:
-        mac = hex(uuid.getnode())[2:].zfill(12)
+        macs = []
+        if HAS_PSUTIL:
+            for iface, addrs in psutil.net_if_addrs().items():
+                for addr in addrs:
+                    is_mac = (
+                        (hasattr(socket, 'AF_PACKET') and addr.family == socket.AF_PACKET)
+                        or addr.family == 18
+                    )
+                    if is_mac and addr.address:
+                        m = addr.address.replace(':', '').replace('-', '').lower()
+                        if len(m) == 12 and m not in ('000000000000', 'ffffffffffff'):
+                            macs.append(m)
+        if not macs:
+            m = hex(uuid.getnode())[2:].zfill(12)
+            if m not in ('000000000000', 'ffffffffffff'):
+                macs = [m]
+        stable_mac = sorted(macs)[0] if macs else hex(uuid.getnode())[2:].zfill(12)
         hostname = socket.gethostname()
-        raw = f"{hostname}-{mac}"
+        raw = f"{hostname}-{stable_mac}"
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
     except Exception:
         return hashlib.sha256(socket.gethostname().encode()).hexdigest()[:16]

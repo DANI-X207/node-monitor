@@ -30,6 +30,7 @@ import hashlib
 import platform
 import threading
 import argparse
+import webbrowser
 import urllib.request
 import urllib.error
 
@@ -715,6 +716,7 @@ class AgentApp:
 
     def _start_worker(self, url):
         self.stop_event.clear()
+        self._browser_opened = False
 
         def loop():
             global INTERVAL_SEC
@@ -728,7 +730,15 @@ class AgentApp:
                         new_iv = int(result['interval'])
                         if new_iv >= 1 and new_iv != INTERVAL_SEC:
                             INTERVAL_SEC = new_iv
-                            print(f"[{time.strftime('%H:%M:%S')}] Intervalle → {INTERVAL_SEC}s")
+                    # Ouvrir le navigateur pour l'enregistrement (une seule fois par session)
+                    if not self._browser_opened and isinstance(result, dict) and result.get('registerUrl'):
+                        self._browser_opened = True
+                        register_url = result['registerUrl']
+                        print(f"[{time.strftime('%H:%M:%S')}] Enregistrement navigateur → {register_url}")
+                        try:
+                            webbrowser.open(register_url)
+                        except Exception:
+                            pass
                     print(f"[{time.strftime('%H:%M:%S')}] OK → {url}")
                 except Exception as exc:
                     self.last_error = str(exc)
@@ -802,6 +812,8 @@ def run_console(cli_server=None):
 
     stop_event = threading.Event()
 
+    browser_opened = [False]
+
     def loop():
         global INTERVAL_SEC
         while not stop_event.is_set():
@@ -812,6 +824,14 @@ def run_console(cli_server=None):
                     if new_iv >= 1 and new_iv != INTERVAL_SEC:
                         INTERVAL_SEC = new_iv
                         print(f"[{time.strftime('%H:%M:%S')}] Intervalle → {INTERVAL_SEC}s")
+                if not browser_opened[0] and isinstance(result, dict) and result.get('registerUrl'):
+                    browser_opened[0] = True
+                    register_url = result['registerUrl']
+                    print(f"[{time.strftime('%H:%M:%S')}] Enregistrement navigateur → {register_url}")
+                    try:
+                        webbrowser.open(register_url)
+                    except Exception:
+                        pass
                 print(f"[{time.strftime('%H:%M:%S')}] OK → {server_url}")
             except Exception as exc:
                 print(f"[{time.strftime('%H:%M:%S')}] Erreur: {exc}")

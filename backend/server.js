@@ -8,6 +8,8 @@ const db = require('./database');
 const apiRoutes = require('./routes/api');
 const socketHandler = require('./middleware/socketHandler');
 
+const cookieParser = require('cookie-parser');
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server, {
@@ -17,6 +19,7 @@ const io = socketIO(server, {
 });
 
 app.use(cors());
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));

@@ -670,14 +670,10 @@ function closeMachineModal() {
 
 function _applyIdentifiedMachine(machineId) {
     myMachineId = machineId;
-    localStorage.setItem(STORAGE_KEY, machineId);
     fetchMyMachineIp();
     renderGlobalView();
     const currentView = document.querySelector('.view.active')?.id;
     if (currentView === 'view-me') renderMyMachine();
-    // Note: ne cache PAS le spinner ici — c'est renderMyMachine qui gère
-    // l'affichage quand la machine est trouvée dans allMachines,
-    // ou _showNoAgentMain si aucun agent n'est détecté.
 }
 
 function _showNoAgentMain() {
@@ -716,7 +712,18 @@ async function getLocalIpViaWebRTC() {
 }
 
 async function autoIdentifyMyMachine() {
-    // Étape 1 : WebRTC — le plus fiable, identifie par IP locale (unique sur le LAN)
+    // Étape 1 : Cookie persistant (méthode principale)
+    // Le serveur vérifie le cookie l2ig2_machine posé lors de l'enregistrement du navigateur
+    try {
+        const res = await fetch('/api/identify');
+        const data = await res.json();
+        if (data.machine_id) {
+            _applyIdentifiedMachine(data.machine_id);
+            return;
+        }
+    } catch(e) {}
+
+    // Étape 2 : WebRTC — même réseau que l'agent (avant enregistrement du navigateur)
     let localIp = null;
     try { localIp = await getLocalIpViaWebRTC(); } catch(e) {}
 
@@ -725,83 +732,14 @@ async function autoIdentifyMyMachine() {
             const res = await fetch(`/api/identify?localIp=${encodeURIComponent(localIp)}`);
             const data = await res.json();
             if (data.machine_id) {
-                // Correspondance trouvée sur ce réseau → identification certaine
                 _applyIdentifiedMachine(data.machine_id);
                 return;
             }
         } catch(e) {}
     }
 
-    // Étape 2 : pas de correspondance WebRTC (réseau différent ou WebRTC bloqué)
-    // Utiliser l'ID sauvegardé si disponible (visiteur de retour sur autre réseau)
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-        if (allMachines.length > 0) {
-            if (allMachines.find(m => m.machine_id === saved)) {
-                _applyIdentifiedMachine(saved);
-            } else {
-                // ID sauvegardé mais machine absente de la DB → reset
-                localStorage.removeItem(STORAGE_KEY);
-                myMachineId = null;
-                _showNoAgentMain();
-            }
-        } else {
-            // Machines pas encore chargées → poser l'ID, fetchMachines déclenchera renderMyMachine
-            myMachineId = saved;
-        }
-        return;
-    }
-
-    // Étape 3 : aucun agent détecté sur ce réseau, aucun ID sauvegardé → écran de téléchargement
+    // Étape 3 : Aucune machine trouvée → écran de téléchargement
     _showNoAgentMain();
-}
-
-function openMachinePicker() {
-    const modal = document.getElementById('machinePickerModal');
-    const input = document.getElementById('machineSearchInput');
-    if (input) input.value = '';
-    filterMachinePicker('');
-    modal.classList.add('open');
-    setTimeout(() => { if (input) input.focus(); }, 100);
-}
-
-function closeMachinePicker() {
-    document.getElementById('machinePickerModal').classList.remove('open');
-}
-
-function filterMachinePicker(query) {
-    const list = document.getElementById('machinePickerList');
-    if (!list) return;
-    const q = (query || '').toLowerCase();
-    const filtered = allMachines.filter(m =>
-        !q || (m.hostname || '').toLowerCase().includes(q) || (m.machine_id || '').toLowerCase().includes(q)
-    );
-
-    if (filtered.length === 0) {
-        list.innerHTML = '<div class="picker-empty">Aucune machine trouvée</div>';
-        return;
-    }
-
-    list.innerHTML = filtered.map(m => {
-        const online = isOnline(m);
-        const cpu = m.metrics?.cpu ?? 0;
-        const ram = m.metrics?.ram ?? 0;
-        return `<div class="picker-item" onclick="selectMachineFromPicker('${m.machine_id}')">
-            <div class="picker-item-left">
-                <span class="picker-hostname">${m.hostname || '—'}</span>
-                <span class="picker-os">${m.os_display || m.os_type || '—'}</span>
-            </div>
-            <div class="picker-item-right">
-                <span class="picker-status ${online ? 'online' : 'offline'}">${online ? 'En ligne' : 'Hors ligne'}</span>
-                <span class="picker-metrics">CPU ${cpu.toFixed(1)}% · RAM ${ram.toFixed(1)}%</span>
-            </div>
-        </div>`;
-    }).join('');
-}
-
-function selectMachineFromPicker(machineId) {
-    closeMachinePicker();
-    _applyIdentifiedMachine(machineId);
 }
 
 function showGuide(os) {
@@ -1043,6 +981,12 @@ setInterval(() => {
         }
     }
 }, 1000);
+
+// Si l'agent vient d'enregistrer ce navigateur, naviguer vers "Ma Machine"
+if (new URLSearchParams(window.location.search).get('registered') === '1') {
+    history.replaceState(null, '', window.location.pathname);
+    switchView('me');
+}
 
 setInterval(fetchMachines, 15000);
 fetchMachines();

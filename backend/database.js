@@ -63,6 +63,7 @@ const initializeDatabase = async () => {
   try { db.exec(`ALTER TABLE machines ADD COLUMN cpu_cores_logical INTEGER`); } catch(e) {}
   try { db.exec(`ALTER TABLE machines ADD COLUMN ip_addresses TEXT`); } catch(e) {}
   try { db.exec(`ALTER TABLE machines ADD COLUMN source_ip TEXT`); } catch(e) {}
+  try { db.exec(`ALTER TABLE machines ADD COLUMN browser_token TEXT`); } catch(e) {}
   try { db.exec(`ALTER TABLE metrics ADD COLUMN ram_free_mb REAL`); } catch(e) {}
   try { db.exec(`ALTER TABLE metrics ADD COLUMN uptime_seconds INTEGER`); } catch(e) {}
   try { db.exec(`ALTER TABLE metrics ADD COLUMN uptime_display TEXT`); } catch(e) {}
@@ -183,6 +184,18 @@ const getMetricsHistory = async (machine_id, hours = 24) => {
   });
 };
 
+const setBrowserToken = (machine_id, token) => {
+  db.prepare(`UPDATE machines SET browser_token = ? WHERE machine_id = ?`).run(token, machine_id);
+};
+
+const getMachineByBrowserToken = (token) => {
+  return db.prepare(`SELECT * FROM machines WHERE browser_token = ?`).get(token);
+};
+
+const clearBrowserToken = (machine_id) => {
+  db.prepare(`UPDATE machines SET browser_token = NULL WHERE machine_id = ?`).run(machine_id);
+};
+
 const cleanupOldMetrics = () => {
   const retentionHours = config.METRICS_RETENTION_HOURS || 24;
   const result = db.prepare(`DELETE FROM metrics WHERE timestamp < datetime('now', '-' || ? || ' hours')`).run(retentionHours);
@@ -195,6 +208,9 @@ module.exports = {
   getMachines,
   getMachineById,
   getMachineByMac,
+  setBrowserToken,
+  getMachineByBrowserToken,
+  clearBrowserToken,
   agentDisconnect,
   deduplicateByHostname,
   recordMetrics,

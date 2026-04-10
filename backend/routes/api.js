@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const db = require('../database');
 
 function getClientIp(req) {
@@ -48,10 +49,19 @@ module.exports = (io) => {
 
   router.get('/identify', async (req, res) => {
     try {
-      const machines = await db.getMachines();
-      const localIp = req.query.localIp || null;
+      // 1. Cookie persistant (méthode principale — posé lors de l'enregistrement du navigateur)
+      const cookieMachineId = req.cookies?.l2ig2_machine;
+      if (cookieMachineId) {
+        const machine = await db.getMachineById(cookieMachineId);
+        if (machine) return res.json({ machine_id: cookieMachineId });
+        // Cookie périmé (machine supprimée de la DB) → effacer
+        res.clearCookie('l2ig2_machine', { path: '/' });
+      }
 
+      // 2. IP locale via WebRTC (fallback — même réseau que l'agent)
+      const localIp = req.query.localIp || null;
       if (localIp) {
+        const machines = await db.getMachines();
         for (const machine of machines) {
           try {
             const storedIps = JSON.parse(machine.ip_addresses || '[]');
@@ -68,6 +78,32 @@ module.exports = (io) => {
       res.json({ machine_id: null });
     } catch (err) {
       res.json({ machine_id: null });
+    }
+  });
+
+  // Enregistrement du navigateur : valide le token, pose le cookie, redirige
+  router.get('/register-browser', async (req, res) => {
+    try {
+      const token = req.query.token;
+      if (!token) return res.redirect('/');
+
+      const machine = db.getMachineByBrowserToken(token);
+      if (!machine) return res.redirect('/');
+
+      // Cookie valide 1 an, lisible par JS pour la page d'accueil
+      res.cookie('l2ig2_machine', machine.machine_id, {
+        maxAge: 365 * 24 * 60 * 60 * 1000,
+        httpOnly: false,
+        sameSite: 'lax',
+        path: '/'
+      });
+
+      // Token usage unique → effacer
+      db.clearBrowserToken(machine.machine_id);
+
+      res.redirect('/?registered=1');
+    } catch (err) {
+      res.redirect('/');
     }
   });
 
@@ -151,7 +187,14 @@ module.exports = (io) => {
 
       io.emit('machine_update', { machine_id: machineId });
 
-      res.json({ ok: true, interval: globalInterval });
+      // Générer un token d'enregistrement navigateur (usage unique)
+      const browserToken = crypto.randomUUID();
+      db.setBrowserToken(machineId, browserToken);
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const registerUrl = `${baseUrl}/api/register-browser?token=${browserToken}`;
+
+      res.json({ ok: true, interval: globalInterval, registerUrl });
     } catch (err) {
       console.error('agent-report error:', err);
       res.status(500).json({ error: 'Server error' });

@@ -141,14 +141,6 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="no-agent-divider"><span>ou</span></div>
-                        <div class="no-agent-manual-section">
-                            <p>Votre machine est déjà dans la liste ?</p>
-                            <button class="btn-pick-machine" onclick="openMachinePicker()">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                Choisir ma machine manuellement
-                            </button>
-                        </div>
                     </div>
                 </div>
                 <div id="myMachineData" style="display:none;">
@@ -352,21 +344,6 @@
             <div class="machine-modal-footer">
                 <button class="mm-close-btn" onclick="closeMachineModal()">Fermer</button>
             </div>
-        </div>
-    </div>
-
-    <!-- MACHINE PICKER MODAL -->
-    <div id="machinePickerModal" class="modal-overlay" onclick="closeMachinePicker()">
-        <div class="modal-box picker-modal-box" onclick="event.stopPropagation()">
-            <div class="modal-top">
-                <h2>Choisir ma machine</h2>
-                <button class="modal-close" onclick="closeMachinePicker()">✕</button>
-            </div>
-            <div class="picker-search-wrap">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="machineSearchInput" class="picker-search" placeholder="Rechercher par hostname…" oninput="filterMachinePicker(this.value)">
-            </div>
-            <div id="machinePickerList" class="picker-list"></div>
         </div>
     </div>
 

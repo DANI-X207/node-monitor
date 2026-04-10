@@ -32,7 +32,3 @@ outputType = "webview"
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[deployment]
-run = ["sh", "-c", "npm start"]
-deploymentTarget = "cloudrun"

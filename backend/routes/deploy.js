@@ -171,14 +171,11 @@ router.get('/download/render', (req, res) => {
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        generateValue: false
-        value: 10000
       - key: DB_PATH
         value: /opt/render/project/src/data/monitoring.db
 `;
 
-    const dockerfile = `FROM node:20-alpine
+    const dockerfile = `FROM node:20
 WORKDIR /app
 COPY package*.json ./
 RUN npm install --production
@@ -202,8 +199,8 @@ attached_assets
 `;
 
     const envExample = `# Render — Variables d'environnement
+# PORT est assigné automatiquement par Render — ne pas définir manuellement
 NODE_ENV=production
-PORT=10000
 DB_PATH=/opt/render/project/src/data/monitoring.db
 `;
 
@@ -221,24 +218,33 @@ data/
 
 1. Importez ce dossier dans un dépôt GitHub
 2. Connectez-le à Render (render.com/new)
-3. Choisissez "Web Service" → sélectionnez votre dépôt
-4. Render détecte automatiquement \`render.yaml\`
-5. Déployez !
+3. Choisissez **"New Web Service"** → sélectionnez votre dépôt
+4. Render détecte automatiquement \`render.yaml\` et pré-remplit tout
+5. Cliquez **"Create Web Service"** → Render build et démarre
 
-## ✅ Compatibilité complète
+## Variables d'environnement à définir dans Render
 
-Render est la **plateforme recommandée** pour ce projet :
-- Serveur Node.js persistant ✓
-- Socket.io (temps réel) ✓
-- SQLite avec stockage persistant ✓
-
-## Variables d'environnement
+Dans l'onglet **"Environment"** de votre service Render :
 
 | Variable | Valeur |
 |----------|--------|
 | NODE_ENV | production |
-| PORT     | 10000 (auto-détecté par Render) |
 | DB_PATH  | /opt/render/project/src/data/monitoring.db |
+
+⚠️ Ne définissez pas PORT — Render l'assigne automatiquement.
+
+## ✅ Compatibilité complète
+
+- Serveur Node.js persistant ✓
+- Socket.io (temps réel) ✓
+- \`better-sqlite3\` compilé correctement dans l'environnement Render ✓
+
+## ⚠️ Persistance de la base de données
+
+Sur le **plan gratuit** de Render, le disque est éphémère : la base de données
+est réinitialisée à chaque déploiement. Pour conserver les données entre les
+déploiements, activez un **Render Disk** (plan payant) monté sur
+\`/opt/render/project/src/data\`.
 `;
 
     addBackendCore(archive, {
@@ -261,7 +267,7 @@ router.get('/download/railway', (req, res) => {
     const archive = archiver('zip', { zlib: { level: 9 } });
     archive.pipe(res);
 
-    const dockerfile = `FROM node:20-alpine
+    const dockerfile = `FROM node:20
 WORKDIR /app
 COPY package*.json ./
 RUN npm install --production
@@ -347,7 +353,7 @@ router.get('/download/docker', (req, res) => {
     const archive = archiver('zip', { zlib: { level: 9 } });
     archive.pipe(res);
 
-    const dockerfile = `FROM node:20-alpine
+    const dockerfile = `FROM node:20
 WORKDIR /app
 COPY package*.json ./
 RUN npm install --production

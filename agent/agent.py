@@ -30,8 +30,6 @@ import hashlib
 import platform
 import threading
 import argparse
-import shutil
-import subprocess
 import webbrowser
 import urllib.request
 import urllib.error
@@ -52,76 +50,6 @@ except ImportError:
 DEFAULT_SERVER = "##SERVER_URL##"
 AGENT_NAME = socket.gethostname()
 INTERVAL_SEC = 1
-PREFERRED_BROWSER = ""
-PREFERRED_CHROME_PROFILE = ""
-
-# ── Préférences utilisateur (persistées dans ~/.l2ig2monitor.json) ────────────
-
-def _get_pref_path():
-    return os.path.join(os.path.expanduser("~"), ".l2ig2monitor.json")
-
-def load_prefs():
-    try:
-        with open(_get_pref_path(), 'r') as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-def save_prefs(data):
-    try:
-        existing = load_prefs()
-        existing.update(data)
-        with open(_get_pref_path(), 'w') as f:
-            json.dump(existing, f)
-    except Exception:
-        pass
-
-try:
-    _p = load_prefs()
-    PREFERRED_BROWSER       = _p.get("browser", "")
-    PREFERRED_CHROME_PROFILE = _p.get("chrome_profile", "")
-except Exception:
-    PREFERRED_BROWSER        = ""
-    PREFERRED_CHROME_PROFILE = ""
-
-
-def get_chrome_profiles():
-    """Retourne la liste des profils Chrome détectés sur la machine."""
-    is_win = sys.platform.startswith('win')
-    if is_win:
-        base = os.path.join(os.path.expandvars("%LOCALAPPDATA%"),
-                            "Google", "Chrome", "User Data")
-    elif sys.platform.startswith('darwin'):
-        base = os.path.join(os.path.expanduser("~"), "Library",
-                            "Application Support", "Google", "Chrome")
-    else:
-        base = os.path.join(os.path.expanduser("~"), ".config", "google-chrome")
-        if not os.path.isdir(base):
-            base = os.path.join(os.path.expanduser("~"), ".config", "chromium")
-
-    if not os.path.isdir(base):
-        return []
-
-    profiles = []
-    try:
-        for entry in os.listdir(base):
-            if entry != "Default" and not entry.startswith("Profile "):
-                continue
-            pref_file = os.path.join(base, entry, "Preferences")
-            name = entry
-            if os.path.isfile(pref_file):
-                try:
-                    with open(pref_file, 'r', encoding='utf-8', errors='replace') as f:
-                        pdata = json.load(f)
-                    name = pdata.get("profile", {}).get("name", entry) or entry
-                except Exception:
-                    pass
-            profiles.append({"dir": entry, "name": name})
-    except Exception:
-        return []
-
-    profiles.sort(key=lambda p: (0 if p["dir"] == "Default" else 1, p["dir"]))
-    return profiles
 
 # ── Dark theme colours ───────────────────────────────────────
 BG_DARK   = "#0d1117"
@@ -356,98 +284,6 @@ def send_disconnect(server_url):
         urllib.request.urlopen(req, timeout=5)
     except Exception:
         pass
-
-
-def open_with_browser(url):
-    """Ouvre l'URL dans le navigateur préféré, ou le navigateur par défaut."""
-    global PREFERRED_BROWSER, PREFERRED_CHROME_PROFILE
-    if not PREFERRED_BROWSER:
-        try:
-            webbrowser.open(url)
-        except Exception:
-            pass
-        return
-
-    is_win = sys.platform.startswith('win')
-
-    local = os.path.expandvars("%LOCALAPPDATA%") if is_win else ""
-
-    WIN_EXES = {
-        "chrome": [
-            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        ],
-        "firefox": [
-            r"C:\Program Files\Mozilla Firefox\firefox.exe",
-            r"C:\Program Files (x86)\Mozilla Firefox\firefox.exe",
-        ],
-        "edge": [
-            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-        ],
-        "opera": [
-            os.path.join(local, r"Programs\Opera\opera.exe"),
-            os.path.join(local, r"Programs\Opera GX\opera.exe"),
-            r"C:\Program Files\Opera\opera.exe",
-        ],
-        "brave": [
-            r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
-            r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe",
-        ],
-    }
-
-    LINUX_CMDS = {
-        "chrome":  ["google-chrome", "google-chrome-stable", "chromium-browser", "chromium"],
-        "firefox": ["firefox"],
-        "edge":    ["microsoft-edge", "microsoft-edge-stable"],
-        "opera":   ["opera", "opera-stable"],
-        "brave":   ["brave-browser", "brave"],
-    }
-
-    WIN_SHORT = {
-        "chrome": "chrome", "firefox": "firefox",
-        "edge": "msedge", "opera": "opera", "brave": "brave",
-    }
-
-    # Arguments supplémentaires (profil Chrome)
-    extra_args = []
-    if PREFERRED_BROWSER == "chrome" and PREFERRED_CHROME_PROFILE:
-        extra_args = [f"--profile-directory={PREFERRED_CHROME_PROFILE}"]
-
-    opened = False
-
-    if is_win:
-        for exe_path in WIN_EXES.get(PREFERRED_BROWSER, []):
-            if os.path.isfile(exe_path):
-                try:
-                    subprocess.Popen([exe_path] + extra_args + [url])
-                    opened = True
-                    break
-                except Exception:
-                    pass
-        if not opened:
-            short = WIN_SHORT.get(PREFERRED_BROWSER)
-            if short and shutil.which(short):
-                try:
-                    subprocess.Popen([short] + extra_args + [url])
-                    opened = True
-                except Exception:
-                    pass
-    else:
-        for cmd in LINUX_CMDS.get(PREFERRED_BROWSER, []):
-            if shutil.which(cmd):
-                try:
-                    subprocess.Popen([cmd] + extra_args + [url])
-                    opened = True
-                    break
-                except Exception:
-                    pass
-
-    if not opened:
-        try:
-            webbrowser.open(url)
-        except Exception:
-            pass
 
 
 # ─────────────────────────────────────────────────────────────
@@ -698,81 +534,6 @@ class AgentApp:
         tk.Label(right, text=subtitle, font=("Segoe UI", 8),
                  fg=FG_SUB, bg=BG_CARD, anchor="w").pack(fill="x")
 
-    def _browser_selector_row(self, parent):
-        """Sélection du navigateur préféré et du profil Chrome — responsive."""
-        global PREFERRED_BROWSER, PREFERRED_CHROME_PROFILE
-
-        options = ["Défaut", "Chrome", "Firefox", "Edge", "Opera", "Brave"]
-        key_map = {"Défaut": "", "Chrome": "chrome", "Firefox": "firefox",
-                   "Edge": "edge", "Opera": "opera", "Brave": "brave"}
-        rev_map = {v: k for k, v in key_map.items()}
-
-        container = tk.Frame(parent, bg=BG_CARD)
-        container.pack(fill="x", pady=(0, 6))
-        container.columnconfigure(1, weight=1)
-
-        # ── Ligne navigateur ──────────────────────────────────
-        tk.Label(container, text="Navigateur :", font=("Segoe UI", 8),
-                 fg=FG_SUB, bg=BG_CARD, anchor="w").grid(
-                 row=0, column=0, sticky="w", padx=(0, 8), pady=(0, 4))
-
-        current_label = rev_map.get(PREFERRED_BROWSER, "Défaut")
-        browser_var = tk.StringVar(value=current_label)
-
-        # ── Ligne profil Chrome (masquée par défaut) ──────────
-        profile_frame = tk.Frame(container, bg=BG_CARD)
-        profile_frame.columnconfigure(1, weight=1)
-        profile_var   = tk.StringVar()
-        profiles      = get_chrome_profiles()
-
-        def _refresh_profile_row():
-            for w in profile_frame.winfo_children():
-                w.destroy()
-            if browser_var.get() == "Chrome" and len(profiles) > 1:
-                profile_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 4))
-                tk.Label(profile_frame, text="Profil :", font=("Segoe UI", 8),
-                         fg=FG_SUB, bg=BG_CARD, anchor="w").grid(
-                         row=0, column=0, sticky="w", padx=(0, 8))
-                prof_names = [p["name"] for p in profiles]
-                cur_dir    = PREFERRED_CHROME_PROFILE or (profiles[0]["dir"] if profiles else "")
-                cur_name   = next((p["name"] for p in profiles if p["dir"] == cur_dir),
-                                  prof_names[0] if prof_names else "")
-                profile_var.set(cur_name)
-                pm = tk.OptionMenu(profile_frame, profile_var, *prof_names,
-                                   command=lambda _: _on_profile_change())
-                pm.config(font=("Segoe UI", 8), bg=BG_INPUT, fg=FG_TEXT,
-                          relief="flat", activebackground=BG_INPUT,
-                          activeforeground=FG_TEXT, highlightthickness=0, bd=0)
-                pm["menu"].config(bg=BG_INPUT, fg=FG_TEXT, activebackground=FG_BLUE,
-                                  activeforeground="#ffffff", relief="flat")
-                pm.grid(row=0, column=1, sticky="ew")
-            else:
-                profile_frame.grid_remove()
-
-        def _on_browser_change(*_):
-            global PREFERRED_BROWSER
-            PREFERRED_BROWSER = key_map.get(browser_var.get(), "")
-            save_prefs({"browser": PREFERRED_BROWSER})
-            _refresh_profile_row()
-
-        def _on_profile_change(*_):
-            global PREFERRED_CHROME_PROFILE
-            sel = profile_var.get()
-            matched = next((p["dir"] for p in profiles if p["name"] == sel), "")
-            PREFERRED_CHROME_PROFILE = matched
-            save_prefs({"chrome_profile": PREFERRED_CHROME_PROFILE})
-
-        om = tk.OptionMenu(container, browser_var, *options,
-                           command=lambda _: _on_browser_change())
-        om.config(font=("Segoe UI", 8), bg=BG_INPUT, fg=FG_TEXT,
-                  relief="flat", activebackground=BG_INPUT,
-                  activeforeground=FG_TEXT, highlightthickness=0, bd=0)
-        om["menu"].config(bg=BG_INPUT, fg=FG_TEXT, activebackground=FG_BLUE,
-                          activeforeground="#ffffff", relief="flat")
-        om.grid(row=0, column=1, sticky="ew")
-
-        _refresh_profile_row()
-
     # ── SCREEN: Connect ──────────────────────────────────────
 
     def _show_connect_screen(self):
@@ -805,7 +566,6 @@ class AgentApp:
             entry.bind("<Return>", lambda _e: self._connect_from_entry(var))
             self._btn(f, "Autre serveur", lambda: self._connect_from_entry(var), FG_BLUE)
             self._sep(f)
-            self._browser_selector_row(f)
             self._btn(f, "Quitter", self._quit, "#374151")
 
         else:
@@ -817,7 +577,6 @@ class AgentApp:
             entry.bind("<Return>", lambda _e: self._connect_from_entry(var))
             self._btn(f, "Se connecter", lambda: self._connect_from_entry(var), FG_BLUE)
             self._sep(f)
-            self._browser_selector_row(f)
             self._btn(f, "Quitter", self._quit, "#374151")
 
     # ── SCREEN: Connecting ───────────────────────────────────
@@ -977,7 +736,7 @@ class AgentApp:
                         register_url = result['registerUrl']
                         print(f"[{time.strftime('%H:%M:%S')}] Enregistrement navigateur → {register_url}")
                         try:
-                            open_with_browser(register_url)
+                            webbrowser.open(register_url)
                         except Exception:
                             pass
                     print(f"[{time.strftime('%H:%M:%S')}] OK → {url}")
@@ -1070,7 +829,7 @@ def run_console(cli_server=None):
                     register_url = result['registerUrl']
                     print(f"[{time.strftime('%H:%M:%S')}] Enregistrement navigateur → {register_url}")
                     try:
-                        open_with_browser(register_url)
+                        webbrowser.open(register_url)
                     except Exception:
                         pass
                 print(f"[{time.strftime('%H:%M:%S')}] OK → {server_url}")
@@ -1095,26 +854,17 @@ def run_console(cli_server=None):
 # ─────────────────────────────────────────────────────────────
 
 def main():
-    global AGENT_NAME, INTERVAL_SEC, PREFERRED_BROWSER, PREFERRED_CHROME_PROFILE
+    global AGENT_NAME, INTERVAL_SEC
 
     parser = argparse.ArgumentParser(description="L2-IG2 Monitor Agent")
     parser.add_argument("--server", default="", help="URL du serveur")
     parser.add_argument("--name", default=socket.gethostname())
     parser.add_argument("--interval", type=int, default=5)
     parser.add_argument("--no-gui", action="store_true", help="Mode console uniquement")
-    parser.add_argument(
-        "--browser", default="",
-        help="Navigateur à utiliser (chrome, firefox, edge, opera, brave). "
-             "Laisser vide pour le navigateur par défaut."
-    )
     args = parser.parse_args()
 
     AGENT_NAME = args.name
     INTERVAL_SEC = args.interval
-
-    if args.browser:
-        PREFERRED_BROWSER = args.browser.lower().strip()
-        save_prefs({"browser": PREFERRED_BROWSER})
 
     cli_server = args.server.rstrip('/') if args.server else None
     if cli_server and not cli_server.startswith('http'):

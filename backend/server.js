@@ -6,6 +6,7 @@ const path = require('path');
 const config = require('./config');
 const db = require('./database');
 const apiRoutes = require('./routes/api');
+const deployRoutes = require('./routes/deploy');
 const socketHandler = require('./middleware/socketHandler');
 
 const cookieParser = require('cookie-parser');
@@ -31,6 +32,7 @@ app.set('views', path.join(__dirname, 'views'));
 app.get('/', (req, res) => res.render('index.html'));
 
 app.use('/api', apiRoutes(io));
+app.use('/deploy', deployRoutes);
 
 socketHandler(io);
 

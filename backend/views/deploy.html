@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>L2-IG2 Monitor — Déploiement</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0d1117;
+            color: #e2e8f0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Navbar ── */
+        .navbar {
+            background: #0d1117;
+            border-bottom: 1px solid #2d3148;
+            padding: 0 24px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .nav-brand { display: flex; align-items: center; gap: 8px; }
+        .brand-dot {
+            width: 10px; height: 10px;
+            background: #4f8ef7;
+            border-radius: 50%;
+        }
+        .brand-name { font-weight: 700; font-size: 15px; color: #e2e8f0; }
+        .nav-back {
+            margin-left: auto;
+            color: #6b7280;
+            text-decoration: none;
+            font-size: 13px;
+            display: flex; align-items: center; gap: 6px;
+            transition: color .2s;
+        }
+        .nav-back:hover { color: #e2e8f0; }
+        .badge-deploy {
+            background: #1e3a5f;
+            color: #4f8ef7;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            letter-spacing: .04em;
+        }
+
+        /* ── Password gate ── */
+        #gate {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .gate-card {
+            background: #161b22;
+            border: 1px solid #2d3148;
+            border-radius: 12px;
+            padding: 40px 48px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .gate-icon {
+            font-size: 36px;
+            margin-bottom: 16px;
+        }
+        .gate-card h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #e2e8f0;
+            margin-bottom: 6px;
+        }
+        .gate-card p {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 24px;
+        }
+        .input-wrap {
+            position: relative;
+            margin-bottom: 12px;
+        }
+        .input-wrap input {
+            width: 100%;
+            background: #0d1117;
+            border: 1px solid #2d3148;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #e2e8f0;
+            font-size: 14px;
+            font-family: 'Consolas', monospace;
+            outline: none;
+            transition: border-color .2s;
+        }
+        .input-wrap input:focus { border-color: #4f8ef7; }
+        .btn-unlock {
+            width: 100%;
+            background: #4f8ef7;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .2s;
+        }
+        .btn-unlock:hover { background: #3b7de8; }
+        .error-msg {
+            color: #f87171;
+            font-size: 13px;
+            margin-top: 10px;
+            display: none;
+        }
+        .error-msg.visible { display: block; }
+
+        /* ── Main content ── */
+        #content {
+            display: none;
+            flex: 1;
+            padding: 32px 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        #content.visible { display: block; }
+
+        .page-header {
+            margin-bottom: 32px;
+        }
+        .page-header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #e2e8f0;
+            margin-bottom: 6px;
+        }
+        .page-header p {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        /* ── Platform grid ── */
+        .platforms {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .platform-card {
+            background: #161b22;
+            border: 1px solid #2d3148;
+            border-radius: 12px;
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transition: border-color .2s;
+        }
+        .platform-card:hover { border-color: #4f8ef7; }
+
+        .platform-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .platform-logo {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+        .platform-logo.vercel { background: #1a1a1a; }
+        .platform-logo.render { background: #0a2e1a; }
+        .platform-logo.railway { background: #1a0e2e; }
+        .platform-logo.docker  { background: #0a1e3a; }
+
+        .platform-title { font-size: 16px; font-weight: 700; color: #e2e8f0; }
+        .platform-subtitle { font-size: 12px; color: #6b7280; margin-top: 2px; }
+
+        .platform-body { font-size: 13px; color: #9ca3af; line-height: 1.6; }
+
+        .config-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .config-list li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .config-list li::before {
+            content: '';
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #34d399;
+            flex-shrink: 0;
+        }
+        .config-list li span { color: #4f8ef7; font-family: 'Consolas', monospace; }
+
+        .tag {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-right: 4px;
+        }
+        .tag-green  { background: #0a2e1a; color: #34d399; }
+        .tag-blue   { background: #1e3a5f; color: #4f8ef7; }
+        .tag-orange { background: #2e1a0a; color: #fb923c; }
+        .tag-purple { background: #1e0a2e; color: #a78bfa; }
+
+        .warning-box {
+            background: #2e1a0a;
+            border: 1px solid #fb923c44;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 12px;
+            color: #fb923c;
+            line-height: 1.5;
+        }
+
+        .btn-download {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: #4f8ef7;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background .2s;
+            margin-top: auto;
+        }
+        .btn-download:hover { background: #3b7de8; }
+        .btn-download.render-btn { background: #34d399; color: #0d1117; }
+        .btn-download.render-btn:hover { background: #22c985; }
+        .btn-download.railway-btn { background: #a78bfa; color: #0d1117; }
+        .btn-download.railway-btn:hover { background: #9066f5; }
+        .btn-download.docker-btn { background: #2496ed; }
+        .btn-download.docker-btn:hover { background: #1a7dc4; }
+
+        .sep { height: 1px; background: #2d3148; }
+
+        /* ── Instructions section ── */
+        .instructions {
+            margin-top: 40px;
+        }
+        .instructions h2 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #e2e8f0;
+            margin-bottom: 16px;
+        }
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 16px;
+        }
+        .step {
+            background: #161b22;
+            border: 1px solid #2d3148;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .step-num {
+            font-size: 11px;
+            font-weight: 700;
+            color: #4f8ef7;
+            letter-spacing: .08em;
+            margin-bottom: 8px;
+        }
+        .step h3 { font-size: 14px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px; }
+        .step p  { font-size: 12px; color: #6b7280; line-height: 1.5; }
+        .code-inline {
+            display: inline-block;
+            background: #0d1117;
+            border: 1px solid #2d3148;
+            border-radius: 4px;
+            padding: 0 5px;
+            font-family: 'Consolas', monospace;
+            font-size: 11px;
+            color: #4f8ef7;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="nav-brand">
+        <span class="brand-dot"></span>
+        <span class="brand-name">L2-IG2 Monitor</span>
+    </div>
+    <span class="badge-deploy">DEPLOY</span>
+    <a href="/" class="nav-back">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Retour au dashboard
+    </a>
+</nav>
+
+<!-- Gate -->
+<div id="gate">
+    <div class="gate-card">
+        <div class="gate-icon">🔐</div>
+        <h2>Zone de déploiement</h2>
+        <p>Entrez le mot de passe pour accéder aux options de déploiement multi-plateformes.</p>
+        <form onsubmit="unlock(); return false;">
+        <input type="text" name="username" autocomplete="username" style="display:none" aria-hidden="true" />
+        <div class="input-wrap">
+            <input type="password" id="pwd-input" placeholder="Mot de passe…" autocomplete="current-password" name="password" />
+        </div>
+        <button type="submit" class="btn-unlock">Déverrouiller</button>
+        </form>
+        <div class="error-msg" id="error-msg">Mot de passe incorrect. Réessayez.</div>
+    </div>
+</div>
+
+<!-- Content -->
+<div id="content">
+    <div class="page-header">
+        <h1>Déploiement multi-plateformes</h1>
+        <p>Téléchargez une archive .zip prête à déployer pour chaque plateforme. Aucune configuration manuelle supplémentaire requise.</p>
+    </div>
+
+    <div class="platforms">
+
+        <!-- Vercel -->
+        <div class="platform-card">
+            <div class="platform-header">
+                <div class="platform-logo vercel">▲</div>
+                <div>
+                    <div class="platform-title">Vercel</div>
+                    <div class="platform-subtitle">Déploiement serverless Node.js</div>
+                </div>
+            </div>
+            <div class="sep"></div>
+            <div class="platform-body">
+                Déploiement de l'API REST sur Vercel via <code>@vercel/node</code>. Le dashboard et les routes API fonctionnent normalement.
+            </div>
+            <div class="warning-box">
+                ⚠️ Socket.io (temps réel) est limité sur Vercel (serverless). Le dashboard s'affiche mais les mises à jour en direct nécessitent un polling manuel.
+            </div>
+            <ul class="config-list">
+                <li>Fichier inclus : <span>vercel.json</span></li>
+                <li>Fichier inclus : <span>package.json</span> (adapté)</li>
+                <li>Variable requise : <span>DB_PATH=/tmp/monitoring.db</span></li>
+            </ul>
+            <div>
+                <span class="tag tag-blue">Node.js 20</span>
+                <span class="tag tag-orange">Socket.io limité</span>
+            </div>
+            <a href="/deploy/download/vercel" class="btn-download" download>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Télécharger l2ig2-vercel.zip
+            </a>
+        </div>
+
+        <!-- Render -->
+        <div class="platform-card">
+            <div class="platform-header">
+                <div class="platform-logo render">🟢</div>
+                <div>
+                    <div class="platform-title">Render</div>
+                    <div class="platform-subtitle">Serveur Node.js persistant</div>
+                </div>
+            </div>
+            <div class="sep"></div>
+            <div class="platform-body">
+                Déploiement complet avec Socket.io et base de données SQLite persistante. Idéal pour ce projet de monitoring en temps réel.
+            </div>
+            <ul class="config-list">
+                <li>Fichier inclus : <span>render.yaml</span></li>
+                <li>Fichier inclus : <span>Dockerfile</span></li>
+                <li>Fichier inclus : <span>.dockerignore</span></li>
+                <li>Port auto-détecté via <span>$PORT</span></li>
+            </ul>
+            <div>
+                <span class="tag tag-green">Recommandé ✓</span>
+                <span class="tag tag-blue">Socket.io OK</span>
+                <span class="tag tag-blue">Node.js 20</span>
+            </div>
+            <a href="/deploy/download/render" class="btn-download render-btn" download>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Télécharger l2ig2-render.zip
+            </a>
+        </div>
+
+        <!-- Railway -->
+        <div class="platform-card">
+            <div class="platform-header">
+                <div class="platform-logo railway">🚂</div>
+                <div>
+                    <div class="platform-title">Railway</div>
+                    <div class="platform-subtitle">Déploiement Docker simplifié</div>
+                </div>
+            </div>
+            <div class="sep"></div>
+            <div class="platform-body">
+                Utilise le même Dockerfile que Render. Railway détecte automatiquement le Dockerfile et déploie le conteneur.
+            </div>
+            <ul class="config-list">
+                <li>Fichier inclus : <span>Dockerfile</span></li>
+                <li>Fichier inclus : <span>railway.json</span></li>
+                <li>Port auto-détecté via <span>$PORT</span></li>
+            </ul>
+            <div>
+                <span class="tag tag-purple">Docker</span>
+                <span class="tag tag-green">Socket.io OK</span>
+            </div>
+            <a href="/deploy/download/railway" class="btn-download railway-btn" download>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Télécharger l2ig2-railway.zip
+            </a>
+        </div>
+
+        <!-- Docker générique -->
+        <div class="platform-card">
+            <div class="platform-header">
+                <div class="platform-logo docker">🐳</div>
+                <div>
+                    <div class="platform-title">Docker (générique)</div>
+                    <div class="platform-subtitle">Auto-hébergement sur n'importe quel VPS</div>
+                </div>
+            </div>
+            <div class="sep"></div>
+            <div class="platform-body">
+                Image Docker auto-suffisante pour déployer sur votre propre serveur (VPS, NAS, homelab). Lancement en une commande.
+            </div>
+            <ul class="config-list">
+                <li>Fichier inclus : <span>Dockerfile</span></li>
+                <li>Fichier inclus : <span>docker-compose.yml</span></li>
+                <li>Fichier inclus : <span>.env.example</span></li>
+                <li>Volume pour la DB : <span>./data:/app/data</span></li>
+            </ul>
+            <div>
+                <span class="tag tag-blue">Docker Compose</span>
+                <span class="tag tag-green">Socket.io OK</span>
+                <span class="tag tag-green">SQLite persistant</span>
+            </div>
+            <a href="/deploy/download/docker" class="btn-download docker-btn" download>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Télécharger l2ig2-docker.zip
+            </a>
+        </div>
+
+    </div>
+
+    <!-- Instructions -->
+    <div class="instructions">
+        <h2>Comment déployer</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-num">ÉTAPE 1</div>
+                <h3>Télécharger l'archive</h3>
+                <p>Choisissez la plateforme cible et téléchargez le fichier <span class="code-inline">.zip</span> correspondant.</p>
+            </div>
+            <div class="step">
+                <div class="step-num">ÉTAPE 2</div>
+                <h3>Extraire et pousser</h3>
+                <p>Extrayez l'archive, initialisez un dépôt Git et poussez vers votre plateforme ou importez directement depuis GitHub.</p>
+            </div>
+            <div class="step">
+                <div class="step-num">ÉTAPE 3</div>
+                <h3>Variables d'environnement</h3>
+                <p>Définissez <span class="code-inline">PORT</span> (auto sur la plupart des plateformes) et <span class="code-inline">DB_PATH</span> si vous utilisez un volume persistant.</p>
+            </div>
+            <div class="step">
+                <div class="step-num">ÉTAPE 4</div>
+                <h3>Déployer les agents</h3>
+                <p>Une fois le serveur en ligne, téléchargez l'agent depuis le dashboard — l'URL du serveur est injectée automatiquement.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const HASH_TARGET = '8a1b2c3d9f7e6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b';
+
+    async function sha256(msg) {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function unlock() {
+        const val = document.getElementById('pwd-input').value;
+        const hash = await sha256(val);
+        if (val === 'flemme') {
+            sessionStorage.setItem('deploy_auth', '1');
+            show();
+        } else {
+            document.getElementById('error-msg').classList.add('visible');
+        }
+    }
+
+    function show() {
+        document.getElementById('gate').style.display = 'none';
+        document.getElementById('content').classList.add('visible');
+    }
+
+    if (sessionStorage.getItem('deploy_auth') === '1') show();
+</script>
+
+</body>
+</html>

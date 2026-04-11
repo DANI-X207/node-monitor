@@ -30,6 +30,8 @@ import hashlib
 import platform
 import threading
 import argparse
+import shutil
+import subprocess
 import webbrowser
 import urllib.request
 import urllib.error
@@ -50,6 +52,33 @@ except ImportError:
 DEFAULT_SERVER = "##SERVER_URL##"
 AGENT_NAME = socket.gethostname()
 INTERVAL_SEC = 1
+PREFERRED_BROWSER = ""
+
+# ── Préférences utilisateur (persistées dans ~/.l2ig2monitor.json) ────────────
+
+def _get_pref_path():
+    return os.path.join(os.path.expanduser("~"), ".l2ig2monitor.json")
+
+def load_prefs():
+    try:
+        with open(_get_pref_path(), 'r') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_prefs(data):
+    try:
+        existing = load_prefs()
+        existing.update(data)
+        with open(_get_pref_path(), 'w') as f:
+            json.dump(existing, f)
+    except Exception:
+        pass
+
+try:
+    PREFERRED_BROWSER = load_prefs().get("browser", "")
+except Exception:
+    PREFERRED_BROWSER = ""
 
 # ── Dark theme colours ───────────────────────────────────────
 BG_DARK   = "#0d1117"
@@ -284,6 +313,89 @@ def send_disconnect(server_url):
         urllib.request.urlopen(req, timeout=5)
     except Exception:
         pass
+
+
+def open_with_browser(url):
+    """Ouvre l'URL dans le navigateur préféré, ou le navigateur par défaut."""
+    global PREFERRED_BROWSER
+    if not PREFERRED_BROWSER:
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+        return
+
+    is_win = sys.platform.startswith('win')
+
+    WIN_EXES = {
+        "chrome":  [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        ],
+        "firefox": [
+            r"C:\Program Files\Mozilla Firefox\firefox.exe",
+            r"C:\Program Files (x86)\Mozilla Firefox\firefox.exe",
+        ],
+        "edge": [
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        ],
+        "opera": [
+            os.path.join(os.path.expandvars("%LOCALAPPDATA%"), r"Programs\Opera\opera.exe"),
+        ],
+        "brave": [
+            r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+            r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe",
+        ],
+    }
+
+    LINUX_CMDS = {
+        "chrome":  ["google-chrome", "google-chrome-stable", "chromium-browser", "chromium"],
+        "firefox": ["firefox"],
+        "edge":    ["microsoft-edge", "microsoft-edge-stable"],
+        "opera":   ["opera"],
+        "brave":   ["brave-browser", "brave"],
+    }
+
+    WIN_SHORT = {
+        "chrome": "chrome", "firefox": "firefox",
+        "edge": "msedge", "opera": "opera", "brave": "brave",
+    }
+
+    opened = False
+
+    if is_win:
+        for exe_path in WIN_EXES.get(PREFERRED_BROWSER, []):
+            if os.path.isfile(exe_path):
+                try:
+                    subprocess.Popen([exe_path, url])
+                    opened = True
+                    break
+                except Exception:
+                    pass
+        if not opened:
+            short = WIN_SHORT.get(PREFERRED_BROWSER)
+            if short and shutil.which(short):
+                try:
+                    subprocess.Popen([short, url])
+                    opened = True
+                except Exception:
+                    pass
+    else:
+        for cmd in LINUX_CMDS.get(PREFERRED_BROWSER, []):
+            if shutil.which(cmd):
+                try:
+                    subprocess.Popen([cmd, url])
+                    opened = True
+                    break
+                except Exception:
+                    pass
+
+    if not opened:
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
 
 
 # ─────────────────────────────────────────────────────────────
@@ -534,6 +646,35 @@ class AgentApp:
         tk.Label(right, text=subtitle, font=("Segoe UI", 8),
                  fg=FG_SUB, bg=BG_CARD, anchor="w").pack(fill="x")
 
+    def _browser_selector_row(self, parent):
+        """Ligne de sélection du navigateur préféré."""
+        global PREFERRED_BROWSER
+        options   = ["Défaut", "Chrome", "Firefox", "Edge", "Opera", "Brave"]
+        key_map   = {"Défaut": "", "Chrome": "chrome", "Firefox": "firefox",
+                     "Edge": "edge", "Opera": "opera", "Brave": "brave"}
+        rev_map   = {v: k for k, v in key_map.items()}
+
+        row = tk.Frame(parent, bg=BG_CARD)
+        row.pack(fill="x", pady=(0, 6))
+        tk.Label(row, text="Navigateur :", font=("Segoe UI", 8),
+                 fg=FG_SUB, bg=BG_CARD, width=10, anchor="w").pack(side="left")
+
+        current_label = rev_map.get(PREFERRED_BROWSER, "Défaut")
+        var = tk.StringVar(value=current_label)
+
+        def on_change(*_):
+            global PREFERRED_BROWSER
+            PREFERRED_BROWSER = key_map.get(var.get(), "")
+            save_prefs({"browser": PREFERRED_BROWSER})
+
+        om = tk.OptionMenu(row, var, *options, command=lambda _: on_change())
+        om.config(font=("Segoe UI", 8), bg=BG_INPUT, fg=FG_TEXT,
+                  relief="flat", activebackground=BG_INPUT,
+                  activeforeground=FG_TEXT, highlightthickness=0, bd=0)
+        om["menu"].config(bg=BG_INPUT, fg=FG_TEXT, activebackground=FG_BLUE,
+                          activeforeground="#ffffff", relief="flat")
+        om.pack(side="left", fill="x", expand=True)
+
     # ── SCREEN: Connect ──────────────────────────────────────
 
     def _show_connect_screen(self):
@@ -566,6 +707,7 @@ class AgentApp:
             entry.bind("<Return>", lambda _e: self._connect_from_entry(var))
             self._btn(f, "Autre serveur", lambda: self._connect_from_entry(var), FG_BLUE)
             self._sep(f)
+            self._browser_selector_row(f)
             self._btn(f, "Quitter", self._quit, "#374151")
 
         else:
@@ -577,6 +719,7 @@ class AgentApp:
             entry.bind("<Return>", lambda _e: self._connect_from_entry(var))
             self._btn(f, "Se connecter", lambda: self._connect_from_entry(var), FG_BLUE)
             self._sep(f)
+            self._browser_selector_row(f)
             self._btn(f, "Quitter", self._quit, "#374151")
 
     # ── SCREEN: Connecting ───────────────────────────────────
@@ -736,7 +879,7 @@ class AgentApp:
                         register_url = result['registerUrl']
                         print(f"[{time.strftime('%H:%M:%S')}] Enregistrement navigateur → {register_url}")
                         try:
-                            webbrowser.open(register_url)
+                            open_with_browser(register_url)
                         except Exception:
                             pass
                     print(f"[{time.strftime('%H:%M:%S')}] OK → {url}")
@@ -829,7 +972,7 @@ def run_console(cli_server=None):
                     register_url = result['registerUrl']
                     print(f"[{time.strftime('%H:%M:%S')}] Enregistrement navigateur → {register_url}")
                     try:
-                        webbrowser.open(register_url)
+                        open_with_browser(register_url)
                     except Exception:
                         pass
                 print(f"[{time.strftime('%H:%M:%S')}] OK → {server_url}")
@@ -854,17 +997,26 @@ def run_console(cli_server=None):
 # ─────────────────────────────────────────────────────────────
 
 def main():
-    global AGENT_NAME, INTERVAL_SEC
+    global AGENT_NAME, INTERVAL_SEC, PREFERRED_BROWSER
 
     parser = argparse.ArgumentParser(description="L2-IG2 Monitor Agent")
     parser.add_argument("--server", default="", help="URL du serveur")
     parser.add_argument("--name", default=socket.gethostname())
     parser.add_argument("--interval", type=int, default=5)
     parser.add_argument("--no-gui", action="store_true", help="Mode console uniquement")
+    parser.add_argument(
+        "--browser", default="",
+        help="Navigateur à utiliser (chrome, firefox, edge, opera, brave). "
+             "Laisser vide pour le navigateur par défaut."
+    )
     args = parser.parse_args()
 
     AGENT_NAME = args.name
     INTERVAL_SEC = args.interval
+
+    if args.browser:
+        PREFERRED_BROWSER = args.browser.lower().strip()
+        save_prefs({"browser": PREFERRED_BROWSER})
 
     cli_server = args.server.rstrip('/') if args.server else None
     if cli_server and not cli_server.startswith('http'):

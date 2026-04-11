@@ -491,20 +491,25 @@
 </div>
 
 <script>
-    const HASH_TARGET = '8a1b2c3d9f7e6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b';
-
-    async function sha256(msg) {
-        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
-        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
     async function unlock() {
         const val = document.getElementById('pwd-input').value;
-        const hash = await sha256(val);
-        if (val === 'flemme') {
-            sessionStorage.setItem('deploy_auth', '1');
-            show();
-        } else {
+        if (!val) return;
+        try {
+            const res = await fetch('/deploy/auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: val })
+            });
+            if (res.ok) {
+                sessionStorage.setItem('deploy_auth', '1');
+                show();
+            } else {
+                document.getElementById('error-msg').classList.add('visible');
+                document.getElementById('pwd-input').value = '';
+                document.getElementById('pwd-input').focus();
+            }
+        } catch (e) {
+            document.getElementById('error-msg').textContent = 'Erreur réseau. Réessayez.';
             document.getElementById('error-msg').classList.add('visible');
         }
     }

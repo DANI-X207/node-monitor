@@ -2,11 +2,21 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const archiver = require('archiver');
+const config = require('../config');
 
 const router = express.Router();
 
 const BACKEND_DIR = path.join(__dirname, '..');
 const AGENT_DIR   = path.join(__dirname, '../../agent');
+
+/* ── Vérification mot de passe (côté serveur) ── */
+router.post('/auth', (req, res) => {
+    const { password } = req.body || {};
+    if (password === config.DEPLOY_PASSWORD) {
+        return res.json({ ok: true });
+    }
+    return res.status(401).json({ ok: false, error: 'Mot de passe incorrect' });
+});
 
 function addBackendCore(archive, extraFiles = {}) {
     const coreFiles = [
@@ -14,6 +24,7 @@ function addBackendCore(archive, extraFiles = {}) {
         'database.js',
         'config.js',
         'package.json',
+        'package-lock.json',
     ];
     for (const f of coreFiles) {
         const fp = path.join(BACKEND_DIR, f);

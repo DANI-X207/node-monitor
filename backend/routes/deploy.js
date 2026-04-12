@@ -7,7 +7,8 @@ const config = require('../config');
 const router = express.Router();
 
 const BACKEND_DIR = path.join(__dirname, '..');
-const AGENT_DIR   = path.join(__dirname, '../../agent');
+// AGENT_BASE_DIR is set by the zip server.js; fallback for Replit structure (backend/routes/ → ../../)
+const AGENT_DIR = process.env.AGENT_BASE_DIR || path.join(__dirname, '../../agent');
 
 /* ── Vérification mot de passe (côté serveur) ── */
 router.post('/auth', (req, res) => {
@@ -24,7 +25,10 @@ function buildZipServerJs() {
     const css = fs.existsSync(cssPath) ? fs.readFileSync(cssPath, 'utf8') : '';
     const js  = fs.existsSync(jsPath)  ? fs.readFileSync(jsPath,  'utf8') : '';
 
-    return `const express = require('express');
+    return `// Set agent base dir before any require so routes resolve correctly
+process.env.AGENT_BASE_DIR = require('path').join(__dirname, 'agent');
+
+const express = require('express');
 const http = require('http');
 const socketIO = require('socket.io');
 const cors = require('cors');

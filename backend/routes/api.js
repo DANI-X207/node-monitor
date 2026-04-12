@@ -4,6 +4,10 @@ const fs = require('fs');
 const crypto = require('crypto');
 const db = require('../database');
 
+// AGENT_BASE_DIR is set by the zip server.js when deployed (correct path in that structure)
+// Falls back to ../../agent which is correct for the Replit dev structure (backend/routes/ → ../../)
+const AGENT_DIR = process.env.AGENT_BASE_DIR || path.join(__dirname, '../../agent');
+
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
   if (forwarded) return forwarded.split(',')[0].trim();
@@ -301,7 +305,7 @@ module.exports = (io) => {
   });
 
   router.get('/download/agent', (req, res) => {
-    const agentPath = path.join(__dirname, '../../agent/agent.py');
+    const agentPath = path.join(AGENT_DIR, 'agent.py');
     if (!fs.existsSync(agentPath)) {
       return res.status(404).send('Agent not found');
     }
@@ -319,7 +323,7 @@ module.exports = (io) => {
   });
 
   router.get('/download/windows', (req, res) => {
-    const exePath = path.join(__dirname, '../../agent/node-monitor-agent.exe');
+    const exePath = path.join(AGENT_DIR, 'node-monitor-agent.exe');
     if (!fs.existsSync(exePath)) {
       return res.status(404).send('Executable not found');
     }
@@ -329,7 +333,7 @@ module.exports = (io) => {
   });
 
   function serveLinuxScript(res, req, scriptFile, outputName) {
-    const scriptPath = path.join(__dirname, '../../agent', scriptFile);
+    const scriptPath = path.join(AGENT_DIR, scriptFile);
     if (!fs.existsSync(scriptPath)) {
       return res.status(404).send('Installer not found');
     }

@@ -93,13 +93,42 @@ def get_machine_id():
 
 MACHINE_ID = get_machine_id()
 
-# Initialise le compteur CPU de psutil pour que le premier appel interval=None soit valide
-if HAS_PSUTIL:
-    try:
-        import psutil as _psutil_init
-        _psutil_init.cpu_percent(interval=None)
-    except Exception:
-        pass
+# ── CPU Background Sampler ────────────────────────────────────
+# Samples every 0.5 s in a daemon thread and keeps a rolling average.
+# This avoids the "interval=None" instability caused by variable HTTP timing.
+class _CPUSampler:
+    SAMPLE_INTERVAL = 0.5
+    HISTORY_SIZE    = 10   # 5 seconds of history → stable rolling average
+
+    def __init__(self):
+        self._samples = []
+        self._lock    = threading.Lock()
+        t = threading.Thread(target=self._loop, daemon=True)
+        t.start()
+
+    def _loop(self):
+        if HAS_PSUTIL:
+            psutil.cpu_percent(interval=None)   # prime pump
+        while True:
+            try:
+                if HAS_PSUTIL:
+                    val = psutil.cpu_percent(interval=self.SAMPLE_INTERVAL)
+                    with self._lock:
+                        self._samples.append(val)
+                        if len(self._samples) > self.HISTORY_SIZE:
+                            self._samples.pop(0)
+                else:
+                    time.sleep(self.SAMPLE_INTERVAL)
+            except Exception:
+                time.sleep(self.SAMPLE_INTERVAL)
+
+    def value(self):
+        with self._lock:
+            if not self._samples:
+                return 0.0
+            return round(sum(self._samples) / len(self._samples), 1)
+
+_cpu_sampler = _CPUSampler()
 
 
 def _get_launcher_path():
@@ -194,7 +223,7 @@ def get_metrics():
             ips = []
 
     if HAS_PSUTIL:
-        cpu_pct = psutil.cpu_percent(interval=None)
+        cpu_pct = _cpu_sampler.value()
         mem = psutil.virtual_memory()
         net = psutil.net_io_counters()
         uptime = time.time() - psutil.boot_time()

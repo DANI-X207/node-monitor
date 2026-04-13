@@ -19,6 +19,7 @@ const io = socketIO(server, {
   pingTimeout: config.SOCKET_PING_TIMEOUT
 });
 
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(cookieParser());
 app.use(express.json());

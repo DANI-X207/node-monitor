@@ -746,6 +746,9 @@ class AgentApp:
         self._do_connect(val)
 
     def _do_connect(self, url):
+        # Réinitialiser l'ouverture du navigateur seulement si le serveur change
+        if url != self.server_url:
+            self._browser_opened = False
         self.server_url = url
         save_config(url)
         self._show_connecting_screen(url)
@@ -774,7 +777,6 @@ class AgentApp:
 
     def _start_worker(self, url):
         self.stop_event.clear()
-        self._browser_opened = False
 
         def loop():
             global INTERVAL_SEC

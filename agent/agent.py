@@ -283,6 +283,35 @@ def get_metrics():
     }
 
 
+def _open_register_url(url):
+    """Ouvre l'URL d'enregistrement dans le navigateur.
+    Si le navigateur ne peut pas s'ouvrir (Linux headless/service), affiche
+    l'URL bien en évidence pour que l'utilisateur puisse la copier-coller.
+    """
+    print()
+    print("=" * 60)
+    print("  IDENTIFICATION 'Ma Machine'")
+    print("  Ouvrez ce lien dans votre navigateur :")
+    print(f"  {url}")
+    print("=" * 60)
+    print()
+
+    opened = False
+    try:
+        # Sur Linux headless, vérifier si un display est disponible
+        if sys.platform.startswith('linux'):
+            display = os.environ.get('DISPLAY', '') or os.environ.get('WAYLAND_DISPLAY', '')
+            if not display:
+                print("[INFO] Pas d'affichage détecté — copiez le lien ci-dessus dans votre navigateur.")
+                return
+        opened = webbrowser.open(url)
+    except Exception:
+        pass
+
+    if not opened:
+        print("[INFO] Impossible d'ouvrir le navigateur — copiez le lien ci-dessus dans votre navigateur.")
+
+
 def post_metrics(server_url):
     data = get_metrics()
     body = json.dumps(data).encode("utf-8")
@@ -763,11 +792,7 @@ class AgentApp:
                     if not self._browser_opened and isinstance(result, dict) and result.get('registerUrl'):
                         self._browser_opened = True
                         register_url = result['registerUrl']
-                        print(f"[{time.strftime('%H:%M:%S')}] Enregistrement navigateur → {register_url}")
-                        try:
-                            webbrowser.open(register_url)
-                        except Exception:
-                            pass
+                        _open_register_url(register_url)
                     print(f"[{time.strftime('%H:%M:%S')}] OK → {url}")
                 except Exception as exc:
                     self.last_error = str(exc)
@@ -855,12 +880,7 @@ def run_console(cli_server=None):
                         print(f"[{time.strftime('%H:%M:%S')}] Intervalle → {INTERVAL_SEC}s")
                 if not browser_opened[0] and isinstance(result, dict) and result.get('registerUrl'):
                     browser_opened[0] = True
-                    register_url = result['registerUrl']
-                    print(f"[{time.strftime('%H:%M:%S')}] Enregistrement navigateur → {register_url}")
-                    try:
-                        webbrowser.open(register_url)
-                    except Exception:
-                        pass
+                    _open_register_url(result['registerUrl'])
                 print(f"[{time.strftime('%H:%M:%S')}] OK → {server_url}")
             except Exception as exc:
                 print(f"[{time.strftime('%H:%M:%S')}] Erreur: {exc}")

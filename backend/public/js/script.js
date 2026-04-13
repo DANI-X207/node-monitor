@@ -982,10 +982,25 @@ setInterval(() => {
     }
 }, 1000);
 
+// ── Communication inter-onglets ──────────────────────────────
+// Quand le navigateur ouvre le lien d'enregistrement dans un nouvel onglet,
+// les autres onglets du dashboard sont notifiés via BroadcastChannel
+// et relancent l'identification immédiatement.
+let _bc = null;
+try {
+    _bc = new BroadcastChannel('l2ig2_identify');
+    _bc.onmessage = (ev) => {
+        if (ev.data?.type === 'registered') autoIdentifyMyMachine();
+    };
+} catch(e) {}
+
 // Si l'agent vient d'enregistrer ce navigateur, naviguer vers "Ma Machine"
 if (new URLSearchParams(window.location.search).get('registered') === '1') {
     history.replaceState(null, '', window.location.pathname);
-    switchView('me');
+    // Notifier tous les autres onglets ouverts sur ce dashboard
+    try { if (_bc) _bc.postMessage({ type: 'registered' }); } catch(e) {}
+    // Forcer la ré-identification immédiate dans cet onglet aussi
+    autoIdentifyMyMachine().then(() => switchView('me'));
 }
 
 setInterval(fetchMachines, 15000);

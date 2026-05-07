@@ -165,7 +165,8 @@ router.get('/download/vercel', (req, res) => {
             build: 'echo "No build step required"'
         },
         dependencies: {
-            'better-sqlite3': '^9.4.3',
+            'sqlite': '^5.1.1',
+            'sqlite3': '^5.1.7',
             'cookie-parser': '^1.4.7',
             cors: '^2.8.5',
             ejs: '^3.1.9',
@@ -309,7 +310,7 @@ Dans l'onglet **"Environment"** de votre service Render :
 
 - Serveur Node.js persistant ✓
 - Socket.io (temps réel) ✓
-- \`better-sqlite3\` compilé correctement dans l'environnement Render ✓
+- \`sqlite3\` compilé correctement dans l'environnement Render ✓
 
 ## ⚠️ Persistance de la base de données
 

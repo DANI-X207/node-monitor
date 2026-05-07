@@ -79,6 +79,18 @@ module.exports = (io) => {
         }
       }
 
+      // 3. Fallback IP publique (source_ip)
+      const clientIp = getClientIp(req);
+      if (clientIp) {
+        const machines = await db.getMachines();
+        // Ne correspondre que si exactement une seule machine partage cette IP publique
+        // (pour éviter de sélectionner la mauvaise machine dans un réseau d'entreprise)
+        const matches = machines.filter(m => m.source_ip === clientIp);
+        if (matches.length === 1) {
+          return res.json({ machine_id: matches[0].machine_id });
+        }
+      }
+
       res.json({ machine_id: null });
     } catch (err) {
       res.json({ machine_id: null });
@@ -91,7 +103,7 @@ module.exports = (io) => {
       const token = req.query.token;
       if (!token) return res.redirect('/');
 
-      const machine = db.getMachineByBrowserToken(token);
+      const machine = await db.getMachineByBrowserToken(token);
       if (!machine) return res.redirect('/');
 
       // Cookie valide 1 an, lisible par JS pour la page d'accueil
@@ -103,7 +115,7 @@ module.exports = (io) => {
       });
 
       // Token usage unique → effacer
-      db.clearBrowserToken(machine.machine_id);
+      await db.clearBrowserToken(machine.machine_id);
 
       res.redirect('/?registered=1');
     } catch (err) {
@@ -193,7 +205,7 @@ module.exports = (io) => {
 
       // Générer un token d'enregistrement navigateur (usage unique)
       const browserToken = crypto.randomUUID();
-      db.setBrowserToken(machineId, browserToken);
+      await db.setBrowserToken(machineId, browserToken);
 
       const baseUrl = `${req.protocol}://${req.get('host')}`;
       const registerUrl = `${baseUrl}/api/register-browser?token=${browserToken}`;

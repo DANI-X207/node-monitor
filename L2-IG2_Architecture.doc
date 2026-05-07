@@ -1,0 +1,127 @@
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset="utf-8">
+<title>L2-IG2 Monitor - Dossier Technique Complet</title>
+<style>
+  body { font-family: "Calibri", "Segoe UI", sans-serif; line-height: 1.6; color: #333; }
+  .container { width: 90%; margin: auto; }
+  h1 { color: #2F5496; font-size: 28pt; border-bottom: 2px solid #2F5496; padding-bottom: 10px; margin-bottom: 20px; text-align: center; }
+  h2 { color: #2F5496; font-size: 20pt; border-left: 5px solid #2F5496; padding-left: 10px; margin-top: 30px; background-color: #F8F9FA; }
+  h3 { color: #1F3763; font-size: 16pt; margin-top: 20px; border-bottom: 1px solid #D9D9D9; }
+  p, li { font-size: 11pt; text-align: justify; }
+  code { font-family: "Consolas", monospace; background-color: #F2F2F2; padding: 2px 4px; border-radius: 3px; color: #C7254E; }
+  pre { background-color: #2D2D2D; color: #F8F8F2; padding: 15px; border-radius: 5px; font-family: "Consolas", monospace; font-size: 9pt; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; margin-top: 15px; margin-bottom: 15px; box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
+  th, td { border: 1px solid #BFBFBF; padding: 12px; text-align: left; }
+  th { background-color: #2F5496; color: #FFFFFF; font-weight: bold; }
+  tr:nth-child(even) { background-color: #F2F2F2; }
+  .highlight { color: #2F5496; font-weight: bold; }
+  .note { background-color: #FFF3CD; border-left: 5px solid #FFE69C; padding: 10px; margin: 10px 0; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>L2-IG2 Monitor : Analyse Technique et Architecture</h1>
+
+<p>Ce dossier présente une analyse exhaustive du projet <strong>L2-IG2 Monitor</strong>. Il détaille les choix technologiques, la structure logicielle, les interfaces de programmation (API) et le mécanisme de communication en temps réel.</p>
+
+<h2>1. Introduction et Objectifs</h2>
+<p>L2-IG2 Monitor est une plateforme de surveillance centralisée. Son objectif est de permettre à un administrateur de visualiser l'état de santé (CPU, RAM, Disque, Réseau) d'un parc de machines distantes depuis un simple navigateur web, avec une mise à jour instantanée et sans configuration manuelle sur les postes clients.</p>
+
+<h2>2. Architecture Système</h2>
+
+<h3>A. Le Serveur (Node.js & Express)</h3>
+<p>Le serveur est le point central de l'application. Il assure trois rôles critiques :</p>
+<ul>
+    <li><span class="highlight">Hébergement web</span> : Il sert l'interface utilisateur (HTML/CSS/JS) aux administrateurs.</li>
+    <li><span class="highlight">Collecteur de données</span> : Il expose une API REST pour recevoir les rapports des agents Python.</li>
+    <li><span class="highlight">Diffuseur temps réel</span> : Grâce à <strong>Socket.io</strong>, il renvoie immédiatement les données reçues à tous les écrans de contrôle ouverts, sans latence.</li>
+</ul>
+
+<h3>B. L'Agent de Surveillance (Python)</h3>
+<p>L'agent est un programme léger conçu pour Windows et Linux. Son rôle est de "sonder" le matériel :</p>
+<ul>
+    <li>Il utilise la bibliothèque <code>psutil</code> pour extraire les mesures de performance directement du noyau du système d'exploitation.</li>
+    <li>Il fonctionne en mode "discret" : une fois lancé, il peut être réduit dans la barre des tâches tout en continuant d'envoyer ses rapports.</li>
+</ul>
+
+<h3>C. L'Interface Utilisateur (Frontend)</h3>
+<p>Le tableau de bord est construit en "Vanilla JS" (JavaScript pur) pour garantir une vitesse d'exécution maximale. Il utilise <code>Chart.js</code> pour transformer les chiffres bruts en graphiques visuels dynamiques.</p>
+
+<h2>3. Mécanisme de Transmission des Données</h2>
+<p>Comment l'information passe-t-elle de la machine surveillée à votre écran ?</p>
+
+<h3>Étape 1 : La Capture</h3>
+<p>L'agent Python récupère les données système. Il génère un objet structuré (JSON) contenant toutes les métriques (ex: CPU à 12%, RAM utilisée à 4Go). Cet objet inclut un <strong>Machine ID</strong> unique pour que le serveur sache de quel ordinateur il s'agit.</p>
+
+<h3>Étape 2 : Le Voyage (HTTP POST)</h3>
+<p>L'agent effectue une requête HTTP de type <strong>POST</strong> vers le serveur. C'est ce qu'on appelle le mode "Push" : l'agent pousse l'information vers le serveur dès qu'elle est prête.</p>
+
+<h3>Étape 3 : La Diffusion (WebSockets)</h3>
+<p>Dès que le serveur reçoit le rapport, il ne se contente pas de l'enregistrer. Il le "crie" littéralement à tous les navigateurs connectés via un canal **WebSocket**. C'est ce qui permet aux graphiques de bouger instantanément sur votre écran dès qu'un changement survient sur la machine distale.</p>
+
+<h2>4. Les API : Le Cœur de la Communication</h2>
+
+<h3>A. Les API Web Natives (Frontend)</h3>
+<p>Pour fonctionner, le site web utilise des fonctionnalités avancées intégrées directement dans votre navigateur :</p>
+<ul>
+    <li><span class="highlight">WebRTC API</span> : Une technologie normalement utilisée pour la visio, mais ici détournée pour découvrir l'adresse IP locale de votre ordinateur afin de l'identifier automatiquement comme "Ma Machine".</li>
+    <li><span class="highlight">Fetch API</span> : L'interface qui permet au site de discuter avec le serveur en arrière-plan pour envoyer des commandes (comme changer la fréquence de mise à jour).</li>
+    <li><span class="highlight">Canvas API</span> : Utilisée par la bibliothèque <code>Chart.js</code> pour dessiner les graphiques en utilisant la puissance de votre carte graphique, assurant une fluidité parfaite des courbes.</li>
+</ul>
+
+<h3>B. Les API REST (Endpoints Serveur)</h3>
+<p>Le serveur expose des "portes d'entrée" spécifiques pour organiser les échanges :</p>
+<table>
+    <tr>
+        <th>Endpoint</th>
+        <th>Rôle de cette API</th>
+    </tr>
+    <tr>
+        <td><code>/api/agent-report</code></td>
+        <td>C'est la porte d'entrée des données. L'agent y dépose son rapport JSON toutes les secondes.</td>
+    </tr>
+    <tr>
+        <td><code>/api/machines</code></td>
+        <td>Permet au navigateur de récupérer la liste de tous les appareils enregistrés au chargement de la page.</td>
+    </tr>
+    <tr>
+        <td><code>/api/identify</code></td>
+        <td>Vérifie qui vous êtes (via cookies ou IP) pour savoir quel ordinateur afficher dans l'onglet "Ma Machine".</td>
+    </tr>
+    <tr>
+        <td><code>/api/settings/interval</code></td>
+        <td>Permet de modifier à distance la vitesse à laquelle les agents doivent envoyer leurs données.</td>
+    </tr>
+</table>
+
+<h2>5. Le Système d'Identification Intelligent</h2>
+<p>L'identification se fait sans mot de passe via trois couches de sécurité :</p>
+<ol>
+    <li><strong>Le Cookie</strong> : Un "badge" numérique posé dans votre navigateur lors de la première installation.</li>
+    <li><strong>WebRTC</strong> : Une analyse de votre réseau local pour voir si votre adresse IP correspond à celle d'un agent actif.</li>
+    <li><strong>IP Publique</strong> : Si vous et l'agent partagez la même connexion internet, le système fait le lien automatiquement.</li>
+</ol>
+
+<h2>6. Arbre d'Architecture</h2>
+<pre>
+node-monitor-main/
+├── backend/                       # --- SERVEUR ---
+│   ├── server.js                  # Logique centrale (Socket.io + Express)
+│   ├── database.js                # Gestion de la base SQLite
+│   ├── routes/api.js              # Définition des API REST
+│   └── public/                    # --- SITE WEB (FRONTEND) ---
+│       ├── index.html             # Structure du Dashboard
+│       └── js/script.js           # Gestion du temps réel et des graphiques
+└── agent/                         # --- CLIENT (AGENT) ---
+    ├── agent.py                   # Capture des données et interface Python
+    └── build_agent.py             # Outil de création du fichier .exe
+</pre>
+
+<h2>7. Conclusion</h2>
+<p>La force de L2-IG2 Monitor réside dans l'utilisation synchronisée des requêtes HTTP (pour la collecte) et des WebSockets (pour la diffusion). Cette architecture garantit que l'administrateur dispose d'une vision fidèle et instantanée de son parc informatique, tout en conservant une grande simplicité d'utilisation.</p>
+
+</div>
+</body>
+</html>

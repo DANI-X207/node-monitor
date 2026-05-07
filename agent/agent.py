@@ -12,7 +12,7 @@ Dépendance recommandée (métriques complètes) :
 
 Créer un .exe Windows (sans console) :
     pip install pyinstaller psutil
-    pyinstaller --onefile --noconsole --name node-monitor-agent agent.py
+    pyinstaller --onefile --noconsole --name node-monitor-agent --icon gnode-monitor-agent.ico agent.py
 
 Créer un binaire Linux / macOS :
     pip install pyinstaller psutil
@@ -131,63 +131,28 @@ class _CPUSampler:
 _cpu_sampler = _CPUSampler()
 
 
-def _get_launcher_path():
-    return os.path.join(os.path.expanduser("~"), "l2ig2-monitor", "l2ig2-monitor-agent.sh")
+def _get_config_path():
+    return os.path.join(os.path.expanduser("~"), ".l2ig2-agent.json")
 
 
 def load_config():
-    if "##" not in DEFAULT_SERVER and DEFAULT_SERVER.startswith("http"):
-        return {"server_url": DEFAULT_SERVER}
-    launcher = _get_launcher_path()
-    if os.path.exists(launcher):
+    config_file = _get_config_path()
+    if os.path.exists(config_file):
         try:
-            with open(launcher, 'r') as f:
-                content = f.read()
-            m = _re.search(r'--server\s+"?([^\s"]+)"?', content)
-            if m:
-                return {"server_url": m.group(1)}
+            with open(config_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
         except Exception:
             pass
     return {}
 
 
 def save_config(server_url):
-    launcher = _get_launcher_path()
-    if os.path.exists(launcher):
-        try:
-            with open(launcher, 'r') as f:
-                content = f.read()
-            new_content = _re.sub(
-                r'(--server\s+)"[^"]*"',
-                f'\\1"{server_url}"',
-                content
-            )
-            if new_content == content:
-                new_content = _re.sub(
-                    r'(--server\s+)\S+',
-                    f'\\1"{server_url}"',
-                    content
-                )
-            with open(launcher, 'w') as f:
-                f.write(new_content)
-            return
-        except Exception:
-            pass
-    if not getattr(sys, 'frozen', False):
-        try:
-            agent_path = os.path.abspath(__file__)
-            with open(agent_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            new_content = _re.sub(
-                r'^DEFAULT_SERVER = ".*"$',
-                f'DEFAULT_SERVER = "{server_url}"',
-                content,
-                flags=_re.MULTILINE
-            )
-            with open(agent_path, 'w', encoding='utf-8') as f:
-                f.write(new_content)
-        except Exception:
-            pass
+    config_file = _get_config_path()
+    try:
+        with open(config_file, 'w', encoding='utf-8') as f:
+            json.dump({"server_url": server_url}, f)
+    except Exception:
+        pass
 
 
 def get_metrics():
@@ -599,8 +564,7 @@ class AgentApp:
         self._set_status("Non connecté")
 
         cfg = load_config()
-        injected = DEFAULT_SERVER if "##" not in DEFAULT_SERVER else ""
-        saved = cfg.get("server_url", "") or injected
+        saved = cfg.get("server_url", "")
 
         f = self._centered()
 
@@ -746,9 +710,6 @@ class AgentApp:
         self._do_connect(val)
 
     def _do_connect(self, url):
-        # Réinitialiser l'ouverture du navigateur seulement si le serveur change
-        if url != self.server_url:
-            self._browser_opened = False
         self.server_url = url
         save_config(url)
         self._show_connecting_screen(url)
@@ -777,6 +738,7 @@ class AgentApp:
 
     def _start_worker(self, url):
         self.stop_event.clear()
+        self._browser_opened = False
 
         def loop():
             global INTERVAL_SEC
